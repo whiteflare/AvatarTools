@@ -1,0 +1,24 @@
+{
+  "name": "jp.whiteflare.avatartools",
+  "displayName": "Flare's Avatar Tools",
+  "version": "0.1.0",
+  "author": {
+    "name": "whiteflare"
+  },
+  "description": "Flare's Avatar Tools",
+  "gitDependencies": {},
+  "vpmDependencies": {
+    "com.vrchat.avatars": "3.1.13"
+  },
+  "legacyFolders": {
+    "Assets\\whiteflare\\AnimEditUtility": "dfdccec0a7e8acf42af6439586e3fe30",
+    "Assets\\whiteflare\\AvatarCopyUtility": "3b97d7763e106a84085cabe264b91502",
+    "Assets\\whiteflare\\AvatarTexTool": "957ff4a0e9b0a2b4bb5cd5f99498272b",
+    "Assets\\whiteflare\\BoundsUnificator": "e202e341b570b8c4dab04b735bd3feb8",
+    "Assets\\whiteflare\\HierarchyHelper": "97e98175714db7e46b162eb0b12142f7",
+    "Assets\\whiteflare\\PhysBoneSetupHelper": "d63b90c8b948a3a45b035d39b80b9006"
+  },
+  "legacyFiles": {
+    "Assets\\whiteflare\\MiscTools\\Editor\\MeshPolyCounter.cs": "8f7ca49ca853c214db6ff6cff7958ac6"
+  }
+}
