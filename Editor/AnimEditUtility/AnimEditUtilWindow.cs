@@ -38,7 +38,7 @@ using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 #endif
 
-namespace WF.Utillty.AnimEdit
+namespace WF.Tool.Avatar.AnimEdit
 {
     internal class AnimEditUtilWindow : EditorWindow
     {

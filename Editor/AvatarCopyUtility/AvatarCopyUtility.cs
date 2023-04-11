@@ -28,7 +28,7 @@ using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Dynamics.PhysBone.Components;
 using VRC.SDK3.Dynamics.Contact.Components;
 
-namespace WF.Utillty
+namespace WF.Tool.Avatar
 {
     internal class AvatarCopyUtility : EditorWindow
     {

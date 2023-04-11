@@ -23,7 +23,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-namespace WF.Utillty.AnimEdit
+namespace WF.Tool.Avatar.AnimEdit
 {
     /// <summary>
     /// UnityEditor.Animations.AnimatorController とその周辺を編集するユーティリティ

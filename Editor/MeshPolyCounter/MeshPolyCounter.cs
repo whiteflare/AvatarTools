@@ -23,7 +23,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 
-namespace WF.Utillty
+namespace WF.Tool.Avatar
 {
     internal class MeshPolyCounter : EditorWindow
     {

@@ -37,7 +37,7 @@ using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace WF.Utillty.AvTexTool
+namespace WF.Tool.Avatar.AvTexTool
 {
     internal class AvatarTexTool : EditorWindow
     {

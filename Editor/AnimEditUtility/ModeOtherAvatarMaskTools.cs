@@ -22,7 +22,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace WF.Utillty.AnimEdit
+namespace WF.Tool.Avatar.AnimEdit
 {
     internal class ModeOtherAvatarMaskTools : AnimEditUtilWindowEditMode
     {

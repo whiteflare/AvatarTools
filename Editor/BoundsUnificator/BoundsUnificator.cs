@@ -23,7 +23,7 @@ using UnityEditor;
 using UnityEngine;
 using System.Text.RegularExpressions;
 
-namespace WF.Utillty
+namespace WF.Tool.Avatar
 {
     internal class BoundsUnificator : EditorWindow
     {

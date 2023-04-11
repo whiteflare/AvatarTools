@@ -36,7 +36,7 @@ using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
 #endif
 
-namespace WF.Utillty.AnimEdit
+namespace WF.Tool.Avatar.AnimEdit
 {
     internal class ModeNewLayer : AnimEditUtilWindowEditMode
     {

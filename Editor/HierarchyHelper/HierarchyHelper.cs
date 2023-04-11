@@ -26,7 +26,7 @@ using UnityEngine.Animations;
 using UnityEngine.SceneManagement;
 using UnityEditor.Experimental.SceneManagement;
 
-namespace WF.Utillty
+namespace WF.Tool.Avatar
 {
     internal class HierarchyHelper : EditorWindow, IHasCustomMenu
     {

@@ -25,7 +25,7 @@ using UnityEditorInternal;
 using UnityEngine;
 using VRC.SDK3.Dynamics.PhysBone.Components;
 
-namespace WF.Utillty
+namespace WF.Tool.Avatar
 {
     internal class PhysBoneSetupHelper : EditorWindow
     {

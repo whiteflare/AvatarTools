@@ -22,7 +22,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-namespace WF.Utillty.AnimEdit
+namespace WF.Tool.Avatar.AnimEdit
 {
     internal class ModeWriteDefaultTakedown : AnimEditUtilWindowEditMode
     {
