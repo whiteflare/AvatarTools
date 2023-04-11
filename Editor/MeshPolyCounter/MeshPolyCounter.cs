@@ -27,7 +27,7 @@ namespace WF.Tool.Avatar
 {
     internal class MeshPolyCounter : EditorWindow
     {
-        [MenuItem("Tools/whiteflare/Mesh/Mesh Poly Counter")]
+        [MenuItem("Tools/whiteflare/Mesh Poly Counter")]
         public static void ShowWindow() {
             var window = GetWindow<MeshPolyCounter>("Mesh Poly Counter");
             var root = Selection.activeGameObject;
