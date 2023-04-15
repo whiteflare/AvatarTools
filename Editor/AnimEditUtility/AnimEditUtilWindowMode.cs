@@ -161,7 +161,7 @@ namespace WF.Tool.Avatar.AnimEdit
                 return (T)EditorGUILayout.ObjectField(new GUIContent(label), value, typeof(T), true);
         }
 
-        public class ChangeColorScope : GUI.Scope
+        internal class ChangeColorScope : GUI.Scope
         {
             private readonly Color oldColor;
 
