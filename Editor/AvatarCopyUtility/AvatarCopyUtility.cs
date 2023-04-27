@@ -94,8 +94,7 @@ namespace WF.Tool.Avatar
         private int tabIndex = 0;
         private Vector2 _scrollPos = Vector2.zero;
 
-        [MenuItem("Tools/whiteflare/Avatar Copy Utility")]
-        public static void Create()
+        public static void ShowWindow()
         {
             GetWindow<AvatarCopyUtility>(Title);
         }
@@ -790,6 +789,7 @@ namespace WF.Tool.Avatar
             // Undo
             Undo.RegisterFullObjectHierarchyUndo(dstRoot, "Transfer Armature");
 
+            // Src と Dst の GameObject マッピング辞書
             var remapGo = new Dictionary<GameObject, GameObject>();
             for (int i = 0; i < oldBones.Count(); i++)
             {
@@ -801,67 +801,35 @@ namespace WF.Tool.Avatar
                 }
             }
 
-            // Transformのコピー
-            foreach (var ent in remapGo)
-            {
-                if (!string.IsNullOrEmpty(ent.Key.name) && ent.Key.name.StartsWith("VRCLeafTipBone"))
-                {
-                    if (ent.Value != null)
-                    {
-                        CopyTransformIfDifference(ent.Key.transform, ent.Value.transform);
-                    }
-                }
-            }
-
             // GameObject の用意
-            foreach (var ent in remapGo.ToArray())
             {
-                if (ent.Value == null)
+                var prepareSrcGos = new List<GameObject>();
+                prepareSrcGos.AddRange(remapGo.Where(ent => ent.Value == null && IsCopyTargetGameObject(ent.Key)).Select(ent => ent.Key));
+                prepareSrcGos.AddRange(GetAllSkinnedMeshBones(GetCopyTargetComponents<SkinnedMeshRenderer>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetPhysBoneAffectedTransforms(GetCopyTargetComponents<VRCPhysBone>()).Select(t => t.gameObject));
+                foreach (var src in prepareSrcGos.Distinct())
                 {
-                    var src = ent.Key;
-                    if (IsCopyTargetGameObject(src))
-                    {
-                        PrepareGameObject(remapGo, src, true);
-                    }
-                }
-            }
-            // SkinnedMeshRenderer の bones に指定されている GameObject の用意
-            var smrBones = GetAllSkinnedMeshBones(GetCopyTargetComponents<SkinnedMeshRenderer>());
-            foreach (var bone in smrBones)
-            {
-                PrepareGameObject(remapGo, bone.gameObject, true);
-            }
-            // VRCLeafTipBone の用意
-            var pbBones = GetPhysBoneAffectedTransforms(GetCopyTargetComponents<VRCPhysBone>());
-            foreach (var ent in remapGo.ToArray())
-            {
-                if (ent.Value == null)
-                {
-                    var src = ent.Key;
-                    if (!string.IsNullOrEmpty(src.name) && src.name.StartsWith("VRCLeafTipBone") && pbBones.Contains(src.transform))
-                    {
-                        PrepareGameObject(remapGo, src, false); // 親Transformも無い場合はスキップ
-                    }
+                    PrepareGameObject(remapGo, src, true);
                 }
             }
 
+            // Src と Dst の Component マッピング辞書
             var remapCmp = new Dictionary<Component, Component>();
-
-            // コンポーネントの用意
             foreach (var ent in remapGo)
             {
-                if (ent.Value != null)
+                if (ent.Value == null)
                 {
-                    foreach (var t in COPY_TARGET_TYPE)
+                    continue;
+                }
+                foreach (var t in COPY_TARGET_TYPE)
+                {
+                    if (IsCopyTargetGameObject(ent.Key, t))
                     {
-                        if (IsCopyTargetGameObject(ent.Key, t))
+                        RegisterRemapComponent(remapCmp, t, ent.Key, ent.Value);
+                        if (t == typeof(MeshRenderer))
                         {
-                            RegisterRemapComponent(remapCmp, t, ent.Key, ent.Value);
-                            if (t == typeof(MeshRenderer))
-                            {
-                                // もしコピーしようとしているのが MeshRenderer であれば、MeshFilter も一緒にコピーする
-                                RegisterRemapComponent(remapCmp, typeof(MeshFilter), ent.Key, ent.Value);
-                            }
+                            // もしコピーしようとしているのが MeshRenderer であれば、MeshFilter も一緒にコピーする
+                            RegisterRemapComponent(remapCmp, typeof(MeshFilter), ent.Key, ent.Value);
                         }
                     }
                 }
@@ -883,18 +851,34 @@ namespace WF.Tool.Avatar
             var dstBoneList = GetHumanoidBoneTransforms(dstRoot);
 
             // Transformのコピー
+            var copyTransformDsts = new List<Transform>();
             foreach (var dst in remapCmp.Values)
             {
+                if (dst is VRCPhysBone dstPB)
+                {
+                    // VRCLeafTipBoneの座標を合わせる
+                    foreach (var t in GetPhysBoneAffectedTransforms(dstPB))
+                    {
+                        if (!string.IsNullOrEmpty(t.name) && t.name.StartsWith("VRCLeafTipBone"))
+                        {
+                            copyTransformDsts.Add(t);
+                        }
+                    }
+                }
                 if (dst is VRCPhysBoneCollider dstPBC)
                 {
                     // コライダーの座標を合わせる
-                    var t = dstPBC.rootTransform != null ? dstPBC.rootTransform : dstPBC.transform;
-                    // ただしHumanoidボーンに割り当てられているTransformは変更しない
-                    if (!dstBoneList.Contains(t))
-                    {
-                        SyncTransform(remapGo, t);
-                    }
+                    copyTransformDsts.Add(dstPBC.rootTransform != null ? dstPBC.rootTransform : dstPBC.transform);
                 }
+            }
+            foreach(var t in copyTransformDsts.Distinct())
+            {
+                // ただしHumanoidボーンに割り当てられているTransformは変更しない
+                if (dstBoneList.Contains(t))
+                {
+                    continue;
+                }
+                SyncTransform(remapGo, t);
             }
 
             // 参照チェックと警告ログ

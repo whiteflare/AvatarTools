@@ -41,7 +41,6 @@ namespace WF.Tool.Avatar
         public List<SkinnedMeshRenderer> skinMeshRenderers = new List<SkinnedMeshRenderer>();
         public List<MeshRenderer> meshRenderers = new List<MeshRenderer>();
 
-        [MenuItem("Tools/whiteflare/Bounds Unificator")]
         public static void ShowWindow()
         {
             var window = EditorWindow.GetWindow<BoundsUnificator>(Title);

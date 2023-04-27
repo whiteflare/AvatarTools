@@ -185,15 +185,13 @@ namespace WF.Tool.Avatar.AnimEdit
             }
         }
 
-        [MenuItem("Tools/whiteflare/Anim Edit Utility")]
         public static void ShowWindow()
         {
             var window = GetWindow<AnimEditUtilWindow>(Title);
             window.SetSelection(Selection.GetFiltered(typeof(GameObject), SelectionMode.Editable | SelectionMode.ExcludePrefab));
         }
 
-        [MenuItem("GameObject/WriteDefaultをオフにする", priority = 10)]
-        public static void WriteDefaultShortcut()
+        public static void ShowWindowWriteDefault()
         {
             var window = GetWindow<AnimEditUtilWindow>(Title);
             window.SetSelection(Selection.GetFiltered(typeof(GameObject), SelectionMode.Editable | SelectionMode.ExcludePrefab));
@@ -201,8 +199,7 @@ namespace WF.Tool.Avatar.AnimEdit
         }
 
 #if ENV_VRCSDK3_AVATAR
-        [MenuItem("GameObject/AvatarMaskのセットアップ", priority = 10)]
-        public static void SetupAvatarMask()
+        public static void ShowWindowAvatarMask()
         {
             var window = GetWindow<AnimEditUtilWindow>(Title);
             window.SetSelection(Selection.GetFiltered(typeof(GameObject), SelectionMode.Editable | SelectionMode.ExcludePrefab));

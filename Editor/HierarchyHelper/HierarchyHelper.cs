@@ -33,8 +33,7 @@ namespace WF.Tool.Avatar
         private const string Title = "HierarchyHelper";
         private const string ConfigKey = "WF.Utillty.HierarchyHelper";
 
-        [MenuItem("Tools/whiteflare/Hierarchy Helper")]
-        private static void Create() {
+        public static void ShowWindow() {
             GetWindow<HierarchyHelper>(Title);
         }
 
