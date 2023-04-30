@@ -21,7 +21,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
-using UnityEditorInternal;
 using UnityEngine;
 using VRC.SDK3.Dynamics.PhysBone.Components;
 
@@ -322,7 +321,7 @@ namespace WF.Tool.Avatar
                 return notLeafTransforms.Any(t =>
                 {
                     var count = 0;
-                    for(int i =0; i < t.childCount; i++)
+                    for (int i = 0; i < t.childCount; i++)
                     {
                         if (allTransforms.Contains(t.GetChild(i)))
                         {
@@ -431,9 +430,15 @@ namespace WF.Tool.Avatar
                     bone.ignoreTransforms[i] = FindTargetFromArmature(bone, bone.ignoreTransforms[i]);
                 }
             }
+            // アバタールートから全てのVRCPhysBoneColliderについて
+            foreach (var collider in _avatar.GetComponentsInChildren<VRCPhysBoneCollider>(true))
+            {
+                // m_Root の再接続
+                collider.rootTransform = FindTargetFromArmature(collider, GetRootTransform(collider));
+            }
         }
 
-        private T FindTargetFromArmature<T>(VRCPhysBone source, T obj) where T : Component
+        private T FindTargetFromArmature<T>(UnityEngine.Object source, T obj) where T : Component
         {
             if (obj == null)
             {
@@ -549,8 +554,8 @@ namespace WF.Tool.Avatar
 
             // コピー＆ペースト
             bone.rootTransform = GetRootTransform(bone); // ルートが設定されていないならば設定しておく
-            ComponentUtility.CopyComponent(bone);
-            ComponentUtility.PasteComponentAsNew(target);
+            UnityEditorInternal.ComponentUtility.CopyComponent(bone);
+            UnityEditorInternal.ComponentUtility.PasteComponentAsNew(target);
 
             // 元のコンポーネントを削除
             DestroyImmediate(bone);
@@ -568,14 +573,14 @@ namespace WF.Tool.Avatar
             }
             // コピー＆ペースト
             collider.rootTransform = GetRootTransform(collider); // ルートが設定されていないならば設定しておく
-            ComponentUtility.CopyComponent(collider);
-            ComponentUtility.PasteComponentAsNew(target);
+            UnityEditorInternal.ComponentUtility.CopyComponent(collider);
+            UnityEditorInternal.ComponentUtility.PasteComponentAsNew(target);
 
             // アバター配下のPhysBone全ての参照を変更する
             var dst = target.GetComponents<VRCPhysBoneCollider>().LastOrDefault();
-            foreach(var pb in _avatar.GetComponentsInChildren<VRCPhysBone>(true))
+            foreach (var pb in _avatar.GetComponentsInChildren<VRCPhysBone>(true))
             {
-                for(int i = 0; i < pb.colliders.Count; i++)
+                for (int i = 0; i < pb.colliders.Count; i++)
                 {
                     if (pb.colliders[i] == collider)
                     {
