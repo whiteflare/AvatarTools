@@ -191,6 +191,8 @@ namespace WF.Tool.Avatar.AnimEdit
             window.SetSelection(Selection.GetFiltered(typeof(GameObject), SelectionMode.Editable | SelectionMode.ExcludePrefab));
         }
 
+#if ENV_VRCSDK3_AVATAR
+        [MenuItem("GameObject/WriteDefaultをオフにする", priority = 10)]
         public static void ShowWindowWriteDefault()
         {
             var window = GetWindow<AnimEditUtilWindow>(Title);
@@ -198,7 +200,7 @@ namespace WF.Tool.Avatar.AnimEdit
             window.modeEdit = Mathf.Max(0, ArrayUtility.IndexOf(window.modeTypes, typeof(ModeWriteDefaultTakedown)));
         }
 
-#if ENV_VRCSDK3_AVATAR
+        [MenuItem("GameObject/AvatarMaskのセットアップ", priority = 10)]
         public static void ShowWindowAvatarMask()
         {
             var window = GetWindow<AnimEditUtilWindow>(Title);

@@ -17,25 +17,12 @@
 
 #if UNITY_EDITOR
 
-// VRCSDK有無の判定ここから //////
-#if VRC_SDK_VRCSDK3
-#define ENV_VRCSDK3
-#if UDON
-#define ENV_VRCSDK3_WORLD
-#else
-#define ENV_VRCSDK3_AVATAR
-#endif
-#endif
-// VRCSDK有無の判定ここまで //////
-
 using UnityEditor;
 
 namespace WF.Tool.Avatar
 {
     internal class ToolMenu
     {
-        #region Tools
-
         [MenuItem("Tools/whiteflare/Anim Edit Utility", priority = 11)]
         public static void Menu_AnimEditUtility()
         {
@@ -77,50 +64,6 @@ namespace WF.Tool.Avatar
         {
             PhysBoneSetupHelper.ShowWindow();
         }
-
-        #endregion
-
-        #region GameObject
-
-#if ENV_VRCSDK3_AVATAR
-        [MenuItem("GameObject/WriteDefaultをオフにする", priority = 10)]
-        public static void GoMenu_WriteDefault()
-        {
-            AnimEdit.AnimEditUtilWindow.ShowWindowWriteDefault();
-        }
-
-        [MenuItem("GameObject/AvatarMaskのセットアップ", priority = 10)]
-        public static void GoMenu_AvatarMask()
-        {
-            AnimEdit.AnimEditUtilWindow.ShowWindowAvatarMask();
-        }
-#endif
-
-        [MenuItem("GameObject/Create Other/Splitter/Splitter - 32")]
-        public static void CreateSplitter01()
-        {
-            SplitterObjects.CreateSplitterObject("-", 32);
-        }
-
-        [MenuItem("GameObject/Create Other/Splitter/Splitter - 32 x 16")]
-        public static void CreateSplitter02()
-        {
-            SplitterObjects.CreateSplitterObject("-", 32, 16);
-        }
-
-        [MenuItem("GameObject/Create Other/Splitter/Splitter = 24")]
-        public static void CreateSplitter03()
-        {
-            SplitterObjects.CreateSplitterObject("=", 24);
-        }
-
-        [MenuItem("GameObject/Create Other/Splitter/Splitter = 24 x 16")]
-        public static void CreateSplitter04()
-        {
-            SplitterObjects.CreateSplitterObject("=", 24, 16);
-        }
-
-        #endregion
     }
 }
 

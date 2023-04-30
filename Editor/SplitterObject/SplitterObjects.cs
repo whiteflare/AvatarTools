@@ -25,6 +25,30 @@ namespace WF.Tool.Avatar
 {
     internal class SplitterObjects
     {
+        [MenuItem("GameObject/Create Other/Splitter/Splitter - 32")]
+        public static void CreateSplitter01()
+        {
+            SplitterObjects.CreateSplitterObject("-", 32);
+        }
+
+        [MenuItem("GameObject/Create Other/Splitter/Splitter - 32 x 16")]
+        public static void CreateSplitter02()
+        {
+            SplitterObjects.CreateSplitterObject("-", 32, 16);
+        }
+
+        [MenuItem("GameObject/Create Other/Splitter/Splitter = 24")]
+        public static void CreateSplitter03()
+        {
+            SplitterObjects.CreateSplitterObject("=", 24);
+        }
+
+        [MenuItem("GameObject/Create Other/Splitter/Splitter = 24 x 16")]
+        public static void CreateSplitter04()
+        {
+            SplitterObjects.CreateSplitterObject("=", 24, 16);
+        }
+
         public static void CreateSplitterObject(string label, int length, int count = 1)
         {
             label = Repeat(label, length);
