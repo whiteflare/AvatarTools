@@ -32,8 +32,10 @@ using UnityEditor;
 
 namespace WF.Tool.Avatar
 {
-    internal class ToolMenuConfig
+    internal class ToolMenu
     {
+        #region Tools
+
         [MenuItem("Tools/whiteflare/Anim Edit Utility", priority = 11)]
         public static void Menu_AnimEditUtility()
         {
@@ -64,19 +66,29 @@ namespace WF.Tool.Avatar
             HierarchyHelper.ShowWindow();
         }
 
-        [MenuItem("Tools/whiteflare/PhysBone Setup Helper", priority = 16)]
+        [MenuItem("Tools/whiteflare/Mesh Poly Counter", priority = 16)]
+        public static void Menu_MeshPolyCounter()
+        {
+            MeshPolyCounter.ShowWindow();
+        }
+
+        [MenuItem("Tools/whiteflare/PhysBone Setup Helper", priority = 17)]
         public static void Menu_PBSetupHelper()
         {
             PhysBoneSetupHelper.ShowWindow();
         }
 
+        #endregion
+
+        #region GameObject
+
+#if ENV_VRCSDK3_AVATAR
         [MenuItem("GameObject/WriteDefaultをオフにする", priority = 10)]
         public static void GoMenu_WriteDefault()
         {
             AnimEdit.AnimEditUtilWindow.ShowWindowWriteDefault();
         }
 
-#if ENV_VRCSDK3_AVATAR
         [MenuItem("GameObject/AvatarMaskのセットアップ", priority = 10)]
         public static void GoMenu_AvatarMask()
         {
@@ -84,6 +96,31 @@ namespace WF.Tool.Avatar
         }
 #endif
 
+        [MenuItem("GameObject/Create Other/Splitter/Splitter - 32")]
+        public static void CreateSplitter01()
+        {
+            SplitterObjects.CreateSplitterObject("-", 32);
+        }
+
+        [MenuItem("GameObject/Create Other/Splitter/Splitter - 32 x 16")]
+        public static void CreateSplitter02()
+        {
+            SplitterObjects.CreateSplitterObject("-", 32, 16);
+        }
+
+        [MenuItem("GameObject/Create Other/Splitter/Splitter = 24")]
+        public static void CreateSplitter03()
+        {
+            SplitterObjects.CreateSplitterObject("=", 24);
+        }
+
+        [MenuItem("GameObject/Create Other/Splitter/Splitter = 24 x 16")]
+        public static void CreateSplitter04()
+        {
+            SplitterObjects.CreateSplitterObject("=", 24, 16);
+        }
+
+        #endregion
     }
 }
 
