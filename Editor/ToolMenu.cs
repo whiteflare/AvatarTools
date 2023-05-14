@@ -41,25 +41,31 @@ namespace WF.Tool.Avatar
             AvTexTool.AvatarTexTool.ShowWindow();
         }
 
-        [MenuItem("Tools/whiteflare/Bounds Unificator", priority = 14)]
+        [MenuItem("Tools/whiteflare/BakeKillerFinder改", priority = 14)]
+        public static void Menu_BakeKillerFinder()
+        {
+            VKetEditorTools.BakeKillerFinder.BakeKillerFinderZweiWindow.ShowWindow();
+        }
+
+        [MenuItem("Tools/whiteflare/Bounds Unificator", priority = 15)]
         public static void Menu_BoundsUniticator()
         {
             BoundsUnificator.ShowWindow();
         }
 
-        [MenuItem("Tools/whiteflare/Hierarchy Helper", priority = 15)]
+        [MenuItem("Tools/whiteflare/Hierarchy Helper", priority = 16)]
         public static void Menu_HierarchyHelper()
         {
             HierarchyHelper.ShowWindow();
         }
 
-        [MenuItem("Tools/whiteflare/Mesh Poly Counter", priority = 16)]
+        [MenuItem("Tools/whiteflare/Mesh Poly Counter", priority = 17)]
         public static void Menu_MeshPolyCounter()
         {
             MeshPolyCounter.ShowWindow();
         }
 
-        [MenuItem("Tools/whiteflare/PhysBone Setup Helper", priority = 17)]
+        [MenuItem("Tools/whiteflare/PhysBone Setup Helper", priority = 18)]
         public static void Menu_PBSetupHelper()
         {
             PhysBoneSetupHelper.ShowWindow();
