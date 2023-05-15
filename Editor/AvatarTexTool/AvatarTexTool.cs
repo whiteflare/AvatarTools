@@ -303,7 +303,11 @@ namespace WF.Tool.Avatar.AvTexTool
 #endif
             // シーンからマテリアル→テクスチャを検索
             var seeker = new MaterialSeeker();
-            seeker.FilterHierarchy = IsNotEditorOnly;
+            if (root == null || IsNotEditorOnly(root))
+            {
+                seeker.FilterHierarchy = IsNotEditorOnly;
+                // root が EditorOnly である場合、IsNotEditorOnly のフィルタは付けずすべて検索する
+            }
             var mats = root != null ? seeker.GetAllMaterials(root) : seeker.GetAllMaterialsInScene();
             var texs = new List<Texture>();
             texs.AddRange(mats.SelectMany(GetAllTextures));
@@ -311,7 +315,7 @@ namespace WF.Tool.Avatar.AvTexTool
             // root未指定ならばライトマップを追加
             if (root == null)
             {
-                foreach(var lm in LightmapSettings.lightmaps)
+                foreach (var lm in LightmapSettings.lightmaps)
                 {
                     if (lm != null)
                     {
@@ -323,6 +327,11 @@ namespace WF.Tool.Avatar.AvTexTool
             }
 
             return texs.Where(tex => tex != null).Distinct().Select(tex => new TxTreeViewItem(tex)).ToArray();
+        }
+
+        private static bool IsNotEditorOnly(GameObject go)
+        {
+            return go != null && IsNotEditorOnly(go.transform);
         }
 
         private static bool IsNotEditorOnly(Component cmp)
@@ -562,7 +571,7 @@ namespace WF.Tool.Avatar.AvTexTool
                             return "RenderTexture";
                         return GetTextureType();
                     case COL_ActualFormat:
-                        return GetCurrentRenderTextureFormat() ?? (object) GetCurrentTextureFormat();
+                        return GetCurrentRenderTextureFormat() ?? (object)GetCurrentTextureFormat();
 
                     case COL_MaxSize:
                         return GetTextureMaxSize();
