@@ -40,6 +40,8 @@ namespace WF.Tool.Avatar.AnimEdit
         public string replaceNameFrom = "";
         public string replaceNameTo = "";
 
+        public int namingLayerIndex;
+
         public override void ResetCommonParam(AnimEditUtilWindowCommonParam newParam)
         {
             base.ResetCommonParam(newParam);
@@ -232,11 +234,12 @@ namespace WF.Tool.Avatar.AnimEdit
             EditorGUILayout.Space();
             GUILayout.Label("Format State Names", StyleHeader);
             {
-                EditorGUILayout.HelpBox("AnimatorController 内 State の名称を振り直します。", MessageType.Info);
+                EditorGUILayout.HelpBox("AnimatorControllerLayer 内 State の名称を振り直します。", MessageType.Info);
 
                 EditorGUILayout.Space();
 
                 param.animator = ObjectFieldRequired(LabelAnimatorController, param.animator, lightRed);
+                namingLayerIndex = IntPopupAnimatorLayer(LabelLayerName, param.animator, namingLayerIndex);
 
                 EditorGUILayout.Space();
 
@@ -244,7 +247,7 @@ namespace WF.Tool.Avatar.AnimEdit
                 {
                     if (ConfirmContinue())
                     {
-                        ExecuteFormatStateNames(param.animator);
+                        ExecuteFormatStateNames(param.animator, namingLayerIndex);
                         // 通知
                         OnAfterExecute();
                     }
@@ -274,9 +277,10 @@ namespace WF.Tool.Avatar.AnimEdit
             }
         }
 
-        public static void ExecuteFormatStateNames(AnimatorController animator)
+        public static void ExecuteFormatStateNames(AnimatorController animator, int namingLayerIndex)
         {
-            foreach (var layer in animator.layers)
+            var layer = GetAnimatorLayer(animator, namingLayerIndex);
+            if (layer != null)
             {
                 var names = new System.Collections.Generic.Dictionary<string, int>();
                 foreach (var state in AnimatorEditUtility.GetAllState(layer))
