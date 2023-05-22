@@ -30,10 +30,10 @@
 
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor.Animations;
 using UnityEditor;
-using UnityEngine.SceneManagement;
+using UnityEditor.Animations;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace WF.Tool.Avatar.AvTexTool
 {
@@ -61,6 +61,7 @@ namespace WF.Tool.Avatar.AvTexTool
             ComponentSeekers.Add(new FromComponentSeeker<Renderer>(GetAllMaterials));
             ComponentSeekers.Add(new FromComponentSeeker<Animator>(GetAllMaterials));
             ComponentSeekers.Add(new FromComponentSeeker<Projector>(GetAllMaterials));
+            ComponentSeekers.Add(new FromComponentSeeker<Skybox>((skybox, result) => GetAllMaterials(skybox.material, result)));
 #if ENV_VRCSDK3_AVATAR
             // VRCAvatarDescriptor -> Controller -> AnimationClip -> Material
             ComponentSeekers.Add(new FromComponentSeeker<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>((desc, result) => {
@@ -205,6 +206,9 @@ namespace WF.Tool.Avatar.AvTexTool
             {
                 return result;
             }
+            // スカイボックス取得
+            GetAllMaterials(RenderSettings.skybox, result);
+            // 各GameObject配下のマテリアルを取得
             return GetAllMaterials(scene.GetRootGameObjects(), result);
         }
 

@@ -35,6 +35,7 @@ using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 
 namespace WF.Tool.Avatar.AvTexTool
 {
@@ -326,6 +327,24 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
+#if !ENV_VRCSDK3_AVATAR
+            // root配下からReflectionProbeを検索
+            if (root != null)
+            {
+                texs.AddRange(root.GetComponentsInChildren<ReflectionProbe>(true).Select(rp => rp.texture));
+            }
+            else
+            {
+                for (int i = 0; i < SceneManager.sceneCount; i++)
+                {
+                    var scene = SceneManager.GetSceneAt(i);
+                    foreach (var go in scene.GetRootGameObjects())
+                    {
+                        texs.AddRange(go.GetComponentsInChildren<ReflectionProbe>(true).Select(rp => rp.texture));
+                    }
+                }
+            }
+#endif
             return texs.Where(tex => tex != null).Distinct().Select(tex => new TxTreeViewItem(tex)).ToArray();
         }
 
@@ -441,7 +460,17 @@ namespace WF.Tool.Avatar.AvTexTool
                 height = tex.height;
                 depth = 1;
                 if (tex is Texture2DArray t2a)
+                {
                     depth = t2a.depth;
+                }
+                if (tex is Cubemap)
+                {
+                    depth = 6;
+                }
+                if (tex is CubemapArray ca)
+                {
+                    depth = 6 * ca.cubemapCount;
+                }
             }
 
             private double? GetCurrentTextureBitsPerPixel()
@@ -449,6 +478,8 @@ namespace WF.Tool.Avatar.AvTexTool
                 switch (texture.dimension)
                 {
                     case TextureDimension.Tex2D:
+                    case TextureDimension.Cube:
+                    case TextureDimension.Tex2DArray:
                         {
                             var rf = GetCurrentRenderTextureFormat();
                             if (rf != null)
@@ -464,15 +495,6 @@ namespace WF.Tool.Avatar.AvTexTool
                             if (tif != null)
                             {
                                 return getTextureBitsPerPixel(tif);
-                            }
-                        }
-                        break;
-                    case TextureDimension.Tex2DArray:
-                        {
-                            var tf = GetCurrentTextureFormat();
-                            if (tf != null)
-                            {
-                                return getTextureBitsPerPixel(tf);
                             }
                         }
                         break;
@@ -808,6 +830,10 @@ namespace WF.Tool.Avatar.AvTexTool
                 if (texture is Texture3D t3d)
                 {
                     return t3d.format;
+                }
+                if (texture is Cubemap cubemap)
+                {
+                    return cubemap.format;
                 }
                 return null;
             }
