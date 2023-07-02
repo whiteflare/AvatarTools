@@ -113,7 +113,7 @@ namespace WF.Tool.Avatar.AvTexTool
                 var sizeTotal = GetTotalVRAMSize();
                 var sizeLimited = GetTotalVRAMSize(false);
 #if ENV_VRCSDK3_AVATAR
-                var text = string.Format("Total VRAM: {0} ({1}) / Display of VRC: {2} ({3})",
+                var text = string.Format("Total VRAM: {0} ({1}) / Display on VRC: {2} ({3})",
                     ToPrettyString(sizeTotal), GetPerformanceRank(sizeTotal),
                     ToPrettyString(sizeLimited), GetPerformanceRank(sizeLimited));
 #else
