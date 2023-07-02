@@ -96,8 +96,7 @@ namespace WF.Tool.Avatar.AnimEdit
 
             var allTransforms = new List<string>();
             var generatedMasks = new List<AvatarMask>();
-
-            for(int i = 0; i < avatarDesc.baseAnimationLayers.Length; i++)
+            for (int i = 0; i < avatarDesc.baseAnimationLayers.Length; i++)
             {
                 var layer = avatarDesc.baseAnimationLayers[i];
                 if (layer.isDefault)
@@ -156,7 +155,7 @@ namespace WF.Tool.Avatar.AnimEdit
                     return;
                 }
                 folderPath = "Assets" + folderPath.Substring(Application.dataPath.Length);
-                foreach(var mask in generatedMasks)
+                foreach (var mask in generatedMasks)
                 {
                     var path = AssetDatabase.GenerateUniqueAssetPath(folderPath + "/" + mask.name + ".mask");
                     AssetDatabase.CreateAsset(mask, path);
@@ -191,7 +190,7 @@ namespace WF.Tool.Avatar.AnimEdit
                         && gestureTransforms.Count() == 0)
                     {
                         // もし右指・左指のみ有効かつ Transform を含まない場合 vrc_HandsOnly.mask を設定する。
-                        mask = AssetDatabase.LoadAssetAtPath<AvatarMask>("Assets/VRCSDK/Examples3/Animation/Masks/vrc_HandsOnly.mask");
+                        mask = LoadVRCHandOnlyMask();
                     }
                     if (mask == null)
                     {
@@ -240,6 +239,26 @@ namespace WF.Tool.Avatar.AnimEdit
                     // 作成NG
                     return false; // 他のレイヤは何もしない
             }
+        }
+
+        private static AvatarMask LoadVRCHandOnlyMask()
+        {
+            foreach (var path in new string[] {
+                AssetDatabase.GUIDToAssetPath("b2b8bad9583e56a46a3e21795e96ad92"),
+                "Packages/com.vrchat.avatars/Samples/AV3 Demo Assets/Animation/Masks/vrc_HandsOnly.mask",
+                "Assets/VRCSDK/Examples3/Animation/Masks/vrc_HandsOnly.mask",
+            })
+            {
+                if (!string.IsNullOrEmpty(path))
+                {
+                    var mask = AssetDatabase.LoadAssetAtPath<AvatarMask>(path);
+                    if (mask != null)
+                    {
+                        return mask;
+                    }
+                }
+            }
+            return null;
         }
 
         private static IEnumerable<AvatarMaskBodyPart> ToAvatarMaskBodyPart(string[] humanoidPropertyNames)
