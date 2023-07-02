@@ -53,52 +53,67 @@ namespace WF.Tool.Avatar.AvTexTool
 
         public string progressBarTitle = null;
         public string progressBarText = null;
+        public int progressBarSpan = 10;
 
         public MaterialSeeker()
         {
             ProjectSeekers.Add(new FromAssetSeeker<Material>(".mat", mat => new Material[] { mat }));
-
             ComponentSeekers.Add(new FromComponentSeeker<Renderer>(GetAllMaterials));
             ComponentSeekers.Add(new FromComponentSeeker<Animator>(GetAllMaterials));
             ComponentSeekers.Add(new FromComponentSeeker<Projector>(GetAllMaterials));
             ComponentSeekers.Add(new FromComponentSeeker<Skybox>((skybox, result) => GetAllMaterials(skybox.material, result)));
-#if ENV_VRCSDK3_AVATAR
-            // VRCAvatarDescriptor -> Controller -> AnimationClip -> Material
-            ComponentSeekers.Add(new FromComponentSeeker<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>((desc, result) => {
-                if (desc.customizeAnimationLayers)
-                {
-                    foreach (var layer in desc.baseAnimationLayers)
-                    {
-                        GetAllMaterials(layer.animatorController, result);
-                    }
-                }
-                foreach (var layer in desc.specialAnimationLayers)
-                {
-                    GetAllMaterials(layer.animatorController, result);
-                }
-                return result;
-            }));
-#endif
-#if ENV_VRCSDK3_WORLD
-            ComponentSeekers.Add(new FromComponentSeeker<VRC.SDK3.Components.VRCSceneDescriptor>((desc, result) => {
-                GetAllMaterials(desc.DynamicMaterials, result);
-                return result;
-            }));
-#endif
         }
 
         #region マテリアル列挙系(プロジェクトから)
 
         public IEnumerable<Material> GetAllMaterialsFromProject(params string[] folderPaths)
         {
-            var result = new List<Material>();
-            VisitAllMaterialsFromProject(mat => { result.Add(mat); return true; }, folderPaths);
-            return result.Distinct();
+            var visited = new HashSet<Material>();
+            return IterateAllMaterialsFromProject(folderPaths, visited).SelectMany(getter => getter());
         }
 
-        public int VisitAllMaterialsFromProject(System.Func<Material, bool> action, params string[] folderPaths)
+        public int VisitAllMaterialsInProject(System.Func<Material, bool> action, params string[] folderPaths)
+        {
+            var visited = new HashSet<Material>();
+            return VisitAllMaterials(IterateAllMaterialsFromProject(folderPaths, visited).ToArray(), action);
+        }
+
+        private int VisitAllMaterials(System.Func<IEnumerable<Material>>[] getters, System.Func<Material, bool> action)
         {
             var done = 0;
+            var useProgressBar = !string.IsNullOrWhiteSpace(progressBarTitle) && !string.IsNullOrWhiteSpace(progressBarText) && 0 < progressBarSpan;
+
+            var current = 0;
+            foreach (var getter in getters)
+            {
+                foreach (var mat in getter())
+                {
+                    if (mat != null && action(mat))
+                    {
+                        done++;
+                    }
+                }
+                current++;
+                if (useProgressBar && current % progressBarSpan == 0)
+                {
+                    var progress = current / (float)getters.Length;
+                    if (EditorUtility.DisplayCancelableProgressBar(progressBarTitle, progressBarText, progress))
+                    {
+                        goto EXIT;
+                    }
+                }
+            }
+
+        EXIT:
+            if (useProgressBar)
+            {
+                EditorUtility.ClearProgressBar();
+            }
+            return done;
+        }
+
+        private IEnumerable<System.Func<IEnumerable<Material>>> IterateAllMaterialsFromProject(string[] folderPaths, HashSet<Material> visited)
+        {
             foreach (var seeker in ProjectSeekers)
             {
                 var guids = folderPaths.Length == 0 ?
@@ -108,80 +123,79 @@ namespace WF.Tool.Avatar.AvTexTool
                         .Select(AssetDatabase.GUIDToAssetPath)
                         .Where(seeker.IsValidPath)
                         .Distinct().ToArray();
-                if (0 == paths.Length)
+                foreach (var path in paths)
+                {
+                    yield return () => FilterNotVisited(seeker.LoadFromPath(path), visited);
+                }
+            }
+        }
+
+        private static IEnumerable<Material> FilterNotVisited(IEnumerable<Material> src, HashSet<Material> visited)
+        {
+            foreach(var mat in src)
+            {
+                if (visited.Contains(mat))
                 {
                     continue;
                 }
-                var current = 0;
-                foreach (var path in paths)
-                {
-                    foreach (var mat in seeker.LoadFromPath(path))
-                    {
-                        if (mat != null && action(mat))
-                        {
-                            done++;
-                        }
-                        if (!string.IsNullOrWhiteSpace(progressBarTitle) && !string.IsNullOrWhiteSpace(progressBarText))
-                        {
-                            if (++current % 50 == 0 && EditorUtility.DisplayCancelableProgressBar(progressBarTitle, progressBarText, current / (float)path.Length))
-                            {
-                                goto EXIT;
-                            }
-                        }
-                    }
-                }
-                EditorUtility.ClearProgressBar();
+                visited.Add(mat);
+                yield return mat;
             }
-            return done;
-
-        EXIT:
-            EditorUtility.ClearProgressBar();
-            return done;
         }
 
         #endregion
 
         #region マテリアル列挙系(Selectionから)
 
-        public IEnumerable<Material> GetAllMaterialsInSelection(MatSelectMode mode, List<Material> result = null)
+        public IEnumerable<Material> GetAllMaterialsInSelection(MatSelectMode mode)
         {
-            InitList(ref result);
+            var visited = new HashSet<Material>();
+            return IterateAllMaterialsFromSelection(mode, visited).SelectMany(getter => getter());
+        }
 
+        public int VisitAllMaterialsInSelection(MatSelectMode mode, System.Func<Material, bool> action)
+        {
+            var visited = new HashSet<Material>();
+            return VisitAllMaterials(IterateAllMaterialsFromSelection(mode, visited).ToArray(), action);
+        }
+
+        private IEnumerable<System.Func<IEnumerable<Material>>> IterateAllMaterialsFromSelection(MatSelectMode mode, HashSet<Material> visited)
+        {
             if ((mode & MatSelectMode.FromScene) != 0)
             {
                 // GameObject
-                GetAllMaterials(Selection.GetFiltered<GameObject>(SelectionMode.Editable), result);
+                foreach(var mat in FilterNotVisited(GetAllMaterials(Selection.GetFiltered<GameObject>(SelectionMode.Editable)), visited))
+                {
+                    yield return () => new Material[] { mat };
+                }
             }
             if ((mode & MatSelectMode.FromAsset) != 0)
             {
                 foreach (var seeker in ProjectSeekers)
                 {
-                    result.AddRange(seeker.LoadFromSelection());
+                    foreach (var mat in FilterNotVisited(seeker.LoadFromSelection(), visited))
+                    {
+                        yield return () => new Material[] { mat };
+                    }
                 }
             }
             // サブフォルダ含めて
             if ((mode & MatSelectMode.FromAssetDeep) == MatSelectMode.FromAssetDeep)
             {
-                var folders = Selection.GetFiltered<DefaultAsset>(SelectionMode.Assets)
+                var folderPaths = Selection.GetFiltered<DefaultAsset>(SelectionMode.Assets)
                     .Select(asset => AssetDatabase.GetAssetPath(asset))
                     .Where(path => !string.IsNullOrWhiteSpace(path))
                     .Distinct()
                     .Where(path => System.IO.File.GetAttributes(path).HasFlag(System.IO.FileAttributes.Directory))
                     .ToArray();
-                if (0 < folders.Length)
+                if (0 < folderPaths.Length)
                 {
-                    GetAllMaterials(folders, result);
+                    foreach(var getter in IterateAllMaterialsFromProject(folderPaths, visited))
+                    {
+                        yield return getter;
+                    }
                 }
             }
-
-            return result.Distinct();
-        }
-
-        public IEnumerable<Material> GetAllMaterials(string[] folderPaths, List<Material> result = null)
-        {
-            InitList(ref result);
-            result.AddRange(GetAllMaterialsFromProject(folderPaths));
-            return result;
         }
 
         #endregion
@@ -202,7 +216,7 @@ namespace WF.Tool.Avatar.AvTexTool
         public IEnumerable<Material> GetAllMaterials(Scene scene, List<Material> result = null)
         {
             InitList(ref result);
-            if (scene == null)
+            if (scene == null || !scene.isLoaded)
             {
                 return result;
             }

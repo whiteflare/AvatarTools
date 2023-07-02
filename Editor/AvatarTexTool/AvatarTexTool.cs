@@ -110,15 +110,16 @@ namespace WF.Tool.Avatar.AvTexTool
 
             EditorGUILayout.BeginHorizontal();
             {
-                var size = GetTotalVRAMSize();
-                GUILayout.Label(
+                var sizeTotal = GetTotalVRAMSize();
+                var sizeLimited = GetTotalVRAMSize(false);
 #if ENV_VRCSDK3_AVATAR
-                    string.Format("Total VRAM: {0} ({1})", ToPrettyString(size), GetPerformanceRank(size))
+                var text = string.Format("Total VRAM: {0} ({1}) / Display of VRC: {2} ({3})",
+                    ToPrettyString(sizeTotal), GetPerformanceRank(sizeTotal),
+                    ToPrettyString(sizeLimited), GetPerformanceRank(sizeLimited));
 #else
-                    string.Format("Total VRAM: {0}", ToPrettyString(size))
+                var text = string.Format("Total VRAM: {0}", ToPrettyString(sizeTotal));
 #endif
-                    , EditorStyles.boldLabel);
-
+                GUILayout.Label(text, EditorStyles.boldLabel);
                 GUILayout.FlexibleSpace();
 
                 EditorGUI.BeginChangeCheck();
@@ -288,9 +289,14 @@ namespace WF.Tool.Avatar.AvTexTool
             return Math.Round(bytes / 1024.0 / 1024.0 / 1024.0, 2) + " GiB";
         }
 
-        private long GetTotalVRAMSize()
+        private long GetTotalVRAMSize(bool? filter = null)
         {
-            return treeView.items.Where(item => item != null).Select(item => item.vramSize).Sum();
+            var e = treeView.items.Where(item => item != null);
+            if (filter != null)
+            {
+                e = e.Where(item => item.special == filter);
+            }
+            return e.Select(item => item.vramSize).Sum();
         }
 
         private TxTreeViewItem[] CreateTreeViewItems(GameObject root)
@@ -303,15 +309,8 @@ namespace WF.Tool.Avatar.AvTexTool
             }
 #endif
             // シーンからマテリアル→テクスチャを検索
-            var seeker = new MaterialSeeker();
-            if (root == null || IsNotEditorOnly(root))
-            {
-                seeker.FilterHierarchy = IsNotEditorOnly;
-                // root が EditorOnly である場合、IsNotEditorOnly のフィルタは付けずすべて検索する
-            }
-            var mats = root != null ? seeker.GetAllMaterials(root) : seeker.GetAllMaterialsInScene();
             var texs = new List<Texture>();
-            texs.AddRange(mats.SelectMany(GetAllTextures));
+            texs.AddRange(FindTexture(root, false));
 
             // root未指定ならばライトマップを追加
             if (root == null)
@@ -345,7 +344,63 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 #endif
-            return texs.Where(tex => tex != null).Distinct().Select(tex => new TxTreeViewItem(tex)).ToArray();
+            // ここまでで special = false の TxTreeViewItem を作成する
+            var items = new List<TxTreeViewItem>();
+            items.AddRange(texs.Where(tex => tex != null).Distinct().Select(tex => new TxTreeViewItem(tex, false)));
+
+            // VRCSDKから差し替えられるものを再検索して、リストアップされていないテクスチャを special = true で追加する
+            foreach(var tex in FindTexture(root, true))
+            {
+                if (texs.Contains(tex))
+                    continue;
+                items.Add(new TxTreeViewItem(tex, true));
+            }
+
+            return items.ToArray();
+        }
+
+        private IEnumerable<Texture> FindTexture(GameObject root, bool withVRCSDK)
+        {
+            var seeker = new MaterialSeeker();
+
+            // root が EditorOnly である場合、IsNotEditorOnly のフィルタは付けずすべて検索する
+            if (root == null || IsNotEditorOnly(root))
+            {
+                seeker.FilterHierarchy = IsNotEditorOnly;
+            }
+
+            // VRCSDKから検索
+            if (withVRCSDK)
+            {
+#if ENV_VRCSDK3_AVATAR
+                // VRCAvatarDescriptor -> Controller -> AnimationClip -> Material
+                seeker.ComponentSeekers.Add(new MaterialSeeker.FromComponentSeeker<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>((desc, result) => {
+                    if (desc.customizeAnimationLayers)
+                    {
+                        foreach (var layer in desc.baseAnimationLayers)
+                        {
+                            seeker.GetAllMaterials(layer.animatorController, result);
+                        }
+                    }
+                    foreach (var layer in desc.specialAnimationLayers)
+                    {
+                        seeker.GetAllMaterials(layer.animatorController, result);
+                    }
+                    return result;
+                }));
+#endif
+#if ENV_VRCSDK3_WORLD
+            seeker.ComponentSeekers.Add(new MaterialSeeker.FromComponentSeeker<VRC.SDK3.Components.VRCSceneDescriptor>((desc, result) => {
+                seeker.GetAllMaterials(desc.DynamicMaterials, result);
+                return result;
+            }));
+#endif
+            }
+
+            // 検索
+            var mats = root != null ? seeker.GetAllMaterials(root) : seeker.GetAllMaterialsInScene();
+
+            return mats.SelectMany(GetAllTextures).Where(tex => tex != null).Distinct();
         }
 
         private static bool IsNotEditorOnly(GameObject go)
@@ -400,6 +455,7 @@ namespace WF.Tool.Avatar.AvTexTool
         internal class TxTreeViewItem
         {
             public readonly Texture texture;
+            public readonly bool special;
             public readonly TextureImporter importer;
 
             public long vramSize;
@@ -411,9 +467,10 @@ namespace WF.Tool.Avatar.AvTexTool
             private bool? changedGenerateMipmaps = null;
             private bool? changedStreamingMipmaps = null;
 
-            public TxTreeViewItem(Texture texture)
+            public TxTreeViewItem(Texture texture, bool special)
             {
                 this.texture = texture;
+                this.special = special;
 
                 var path = AssetDatabase.GetAssetPath(texture);
                 if (string.IsNullOrWhiteSpace(path))
