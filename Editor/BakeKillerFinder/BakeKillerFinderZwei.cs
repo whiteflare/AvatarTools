@@ -343,7 +343,11 @@ namespace VKetEditorTools.BakeKillerFinder
             {
                 for (int i = 0; i < SceneManager.sceneCount; i++)
                 {
-                    result.Add(SceneManager.GetSceneAt(i));
+                    var scene = SceneManager.GetSceneAt(i);
+                    if (scene.isLoaded)
+                    {
+                        result.Add(scene);
+                    }
                 }
             }
             return result;

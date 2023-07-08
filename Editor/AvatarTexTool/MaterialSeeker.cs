@@ -207,7 +207,11 @@ namespace WF.Tool.Avatar.AvTexTool
             InitList(ref result);
             for (int i = 0; i < SceneManager.sceneCount; i++)
             {
-                GetAllMaterials(SceneManager.GetSceneAt(i), result);
+                var scene = SceneManager.GetSceneAt(i);
+                if (scene.isLoaded)
+                {
+                    GetAllMaterials(scene, result);
+                }
             }
 
             return result;
@@ -216,7 +220,7 @@ namespace WF.Tool.Avatar.AvTexTool
         public IEnumerable<Material> GetAllMaterials(Scene scene, List<Material> result = null)
         {
             InitList(ref result);
-            if (scene == null || !scene.isLoaded)
+            if (scene == null)
             {
                 return result;
             }
