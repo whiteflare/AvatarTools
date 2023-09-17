@@ -33,6 +33,12 @@ namespace VKetEditorTools.BakeKillerFinder
 {
     public class BakeKillerFinderZweiWindow : EditorWindow
     {
+        [MenuItem("Tools/whiteflare/BakeKillerFinder改", priority = 14)]
+        public static void Menu_BakeKillerFinder()
+        {
+            VKetEditorTools.BakeKillerFinder.BakeKillerFinderZweiWindow.ShowWindow();
+        }
+
         public static readonly string WINDOW_TITLE = "BakeKillerFinder改";
 
         public static void ShowWindow()

@@ -41,6 +41,12 @@ namespace WF.Tool.Avatar.AvTexTool
 {
     internal class AvatarTexTool : EditorWindow
     {
+        [MenuItem("Tools/whiteflare/Avatar Texture Tool", priority = 13)]
+        public static void Menu_AvatarTextureTool()
+        {
+            AvTexTool.AvatarTexTool.ShowWindow();
+        }
+
         public static void ShowWindow()
         {
             var window = GetWindow<AvatarTexTool>("Avatar Texture Tool");

@@ -28,6 +28,12 @@ namespace WF.Tool.Avatar
 {
     internal class PhysBoneSetupHelper : EditorWindow
     {
+        [MenuItem("Tools/whiteflare/PhysBone Setup Helper", priority = 21)]
+        public static void Menu_PBSetupHelper()
+        {
+            PhysBoneSetupHelper.ShowWindow();
+        }
+
         private const string Title = "PhysBone Setup Helper";
 
         private GameObject _avatar;

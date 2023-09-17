@@ -32,6 +32,12 @@ namespace WF.Tool.Avatar
 {
     internal class AvatarCopyUtility : EditorWindow
     {
+        [MenuItem("Tools/whiteflare/Avatar Copy Utility", priority = 12)]
+        public static void Menu_AvatarCopyUtility()
+        {
+            AvatarCopyUtility.ShowWindow();
+        }
+
         private const string Title = "Avatar Copy Utility";
 
         public List<GameObject> oldBones = new List<GameObject>();

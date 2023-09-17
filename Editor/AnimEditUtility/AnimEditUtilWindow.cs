@@ -42,6 +42,12 @@ namespace WF.Tool.Avatar.AnimEdit
 {
     internal class AnimEditUtilWindow : EditorWindow
     {
+        [MenuItem("Tools/whiteflare/Anim Edit Utility", priority = 11)]
+        public static void Menu_AnimEditUtility()
+        {
+            AnimEdit.AnimEditUtilWindow.ShowWindow();
+        }
+
         public const string Title = "Anim Edit Utility";
 
         public int modeEdit = 0;

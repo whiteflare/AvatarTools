@@ -27,6 +27,12 @@ namespace WF.Tool.Avatar
 {
     internal class BoundsUnificator : EditorWindow
     {
+        [MenuItem("Tools/whiteflare/Bounds Unificator", priority = 16)]
+        public static void Menu_BoundsUniticator()
+        {
+            BoundsUnificator.ShowWindow();
+        }
+
         private const string Title = "Bounds Unificator";
 
         public GameObject rootObject;

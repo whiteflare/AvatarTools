@@ -35,6 +35,12 @@ namespace WF.Tool.Avatar
 {
     internal class HierarchyHelper : EditorWindow, IHasCustomMenu
     {
+        [MenuItem("Tools/whiteflare/Hierarchy Helper", priority = 17)]
+        public static void Menu_HierarchyHelper()
+        {
+            HierarchyHelper.ShowWindow();
+        }
+
         private const string Title = "HierarchyHelper";
         private const string ConfigKey = "WF.Utillty.HierarchyHelper";
 
