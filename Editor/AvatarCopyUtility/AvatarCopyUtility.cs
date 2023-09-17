@@ -17,6 +17,19 @@
 
 #if UNITY_EDITOR
 
+// VRCSDK有無の判定ここから //////
+#if VRC_SDK_VRCSDK3
+#define ENV_VRCSDK3
+#if UDON
+#define ENV_VRCSDK3_WORLD
+#else
+#define ENV_VRCSDK3_AVATAR
+#endif
+#endif
+// VRCSDK有無の判定ここまで //////
+
+#if ENV_VRCSDK3_AVATAR
+
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -129,7 +142,7 @@ namespace WF.Tool.Avatar
             DoFindCopyTarget();
         }
 
-        #region GUI
+#region GUI
 
         private void OnGUI()
         {
@@ -370,7 +383,7 @@ namespace WF.Tool.Avatar
             }
         }
 
-        #endregion
+#endregion
 
         private void DoFindCopyTarget()
         {
@@ -399,7 +412,7 @@ namespace WF.Tool.Avatar
             }
         }
 
-        #region Remapping編集
+#region Remapping編集
 
         private void DoFillOldBones()
         {
@@ -618,9 +631,9 @@ namespace WF.Tool.Avatar
             yield break;
         }
 
-        #endregion
+#endregion
 
-        #region コンポーネント変更
+#region コンポーネント変更
 
         private static bool ConfirmContinue()
         {
@@ -1372,8 +1385,10 @@ namespace WF.Tool.Avatar
             return null;
         }
 
-        #endregion
+#endregion
     }
 }
+
+#endif
 
 #endif

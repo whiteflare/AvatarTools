@@ -17,6 +17,19 @@
 
 #if UNITY_EDITOR
 
+// VRCSDK有無の判定ここから //////
+#if VRC_SDK_VRCSDK3
+#define ENV_VRCSDK3
+#if UDON
+#define ENV_VRCSDK3_WORLD
+#else
+#define ENV_VRCSDK3_AVATAR
+#endif
+#endif
+// VRCSDK有無の判定ここまで //////
+
+#if ENV_VRCSDK3_AVATAR
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,7 +80,7 @@ namespace WF.Tool.Avatar
                 .Any(cmp => cmp.GetType().Name == "VRC_AvatarDescriptor" || cmp.GetType().Name == "VRCAvatarDescriptor");
         }
 
-        #region GUI
+#region GUI
 
         private void OnGUI()
         {
@@ -239,9 +252,9 @@ namespace WF.Tool.Avatar
             return EditorUtility.DisplayDialog(Title, "Continue modify Objects?\nオブジェクトを変更しますか？", "OK", "CANCEL");
         }
 
-        #endregion
+#endregion
 
-        #region ベリファイ
+#region ベリファイ
 
         /// <summary>
         /// ベリファイ
@@ -411,9 +424,9 @@ namespace WF.Tool.Avatar
             return collider.rootTransform != null ? collider.rootTransform : collider.gameObject.transform; // ?? 演算子は使えない
         }
 
-        #endregion
+#endregion
 
-        #region 参照の再設定
+#region 参照の再設定
 
         /// <summary>
         /// 参照の再設定
@@ -491,9 +504,9 @@ namespace WF.Tool.Avatar
             return obj;
         }
 
-        #endregion
+#endregion
 
-        #region アタッチ先オブジェクトの変更
+#region アタッチ先オブジェクトの変更
 
         private void MovePhysBoneToBone()
         {
@@ -599,7 +612,7 @@ namespace WF.Tool.Avatar
             DestroyImmediate(collider);
         }
 
-        #endregion
+#endregion
 
         private bool IsChildrenOf(GameObject it, GameObject parent)
         {
@@ -630,5 +643,7 @@ namespace WF.Tool.Avatar
 
     }
 }
+
+#endif
 
 #endif
