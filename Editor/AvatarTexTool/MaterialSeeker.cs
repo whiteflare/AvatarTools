@@ -51,6 +51,19 @@ namespace WF.Tool.Avatar.AvTexTool
             ComponentSeekers.Add(new FromComponentSeeker<Animator>(GetAllMaterials));
             ComponentSeekers.Add(new FromComponentSeeker<Projector>(GetAllMaterials));
             ComponentSeekers.Add(new FromComponentSeeker<Skybox>((skybox, result) => GetAllMaterials(skybox.material, result)));
+#if ENV_TEXTMESHPRO
+            ComponentSeekers.Add(new FromComponentSeeker<TMPro.TextMeshProUGUI>((tmp, result) =>
+            {
+                foreach (var mat in tmp.fontSharedMaterials)
+                {
+                    if (mat != null)
+                    {
+                        result.Add(mat);
+                    }
+                }
+                return result;
+            }));
+#endif
         }
 
         #region マテリアル列挙系(プロジェクトから)

@@ -509,10 +509,20 @@ namespace VKetEditorTools.BakeKillerFinder
                 {
                     continue;
                 }
-                if ((path.StartsWith("Assets/", System.StringComparison.InvariantCulture) || path.StartsWith("Packages/", System.StringComparison.InvariantCulture))
-                    && !path.EndsWith(".mat", System.StringComparison.InvariantCulture))
+                if (!path.StartsWith("Assets/", System.StringComparison.InvariantCulture) || path.StartsWith("Packages/", System.StringComparison.InvariantCulture))
                 {
-                    return true;
+                    if (path.EndsWith(".mat", System.StringComparison.InvariantCulture))
+                    {
+                        continue;
+                    }
+                    if (path.EndsWith(".fbx", System.StringComparison.InvariantCulture))
+                    {
+                        return true;
+                    }
+                    if (path.EndsWith(".blend", System.StringComparison.InvariantCulture))
+                    {
+                        return true;
+                    }
                 }
             }
             return false;
@@ -547,6 +557,14 @@ namespace VKetEditorTools.BakeKillerFinder
             {
                 return false;
             }
+#if ENV_TEXTMESHPRO
+            // TextMeshPro
+            var tmp = renderer.gameObject.GetComponent<TMPro.TextMeshPro>();
+            if (tmp != null)
+            {
+                return false;
+            }
+#endif
             // どちらも無い時は true
             return true;
         }

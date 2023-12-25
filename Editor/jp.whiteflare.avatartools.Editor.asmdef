@@ -1,6 +1,9 @@
 {
     "name": "jp.whiteflare.avatartools.Editor",
-    "references": [],
+    "rootNamespace": "",
+    "references": [
+        "Unity.TextMeshPro"
+    ],
     "includePlatforms": [
         "Editor"
     ],
@@ -28,6 +31,11 @@
             "name": "com.vrchat.avatars",
             "expression": "[3.0.0,4.0.0)",
             "define": "ENV_VRCSDK3_AVATAR"
+        },
+        {
+            "name": "com.unity.textmeshpro",
+            "expression": "[2.0.0,4.0.0)",
+            "define": "ENV_TEXTMESHPRO"
         }
     ],
     "noEngineReferences": false
