@@ -66,6 +66,11 @@ namespace VKetEditorTools.BakeKillerFinder
                 (rootObject, onlyActiveObject) =>
                     FindInScene<MeshFilter>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(IsIllegalUV2)),
 
+            new CheckingTask("ライトベイクがクラッシュするレベル", "Lightmap static な TextMeshPro",
+                HELP_URL + "#",
+                (rootObject, onlyActiveObject) =>
+                    FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(HasTextMeshPro)),
+
             new CheckingTask("ライトベイクがクラッシュするレベル", "Material なし Lightmap static な MeshRenderer",
                 HELP_URL + "#Material%20%E3%81%AA%E3%81%97%20Lightmap%20static%20%E3%81%AA%20MeshRenderer",
                 (rootObject, onlyActiveObject) =>
@@ -661,6 +666,18 @@ namespace VKetEditorTools.BakeKillerFinder
                 || mat.shader.name == "Unlit/Color"
                 || mat.shader.name == "Unlit/Transparent"
                 || mat.shader.name == "Unlit/Transparent Cutout");
+        }
+
+        /// <summary>
+        /// TextMeshProを使用するMeshRendererならばtrue
+        /// </summary>
+        public static bool HasTextMeshPro(MeshRenderer renderer)
+        {
+            if (renderer == null)
+            {
+                return false;
+            }
+            return renderer.gameObject.GetComponents<Component>().Any(cmp => cmp != null && cmp.GetType().FullName == "TMPro.TextMeshPro");
         }
 
 #endregion
