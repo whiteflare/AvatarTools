@@ -45,7 +45,6 @@ namespace WF.Tool.Avatar
         private int attachTypePB = 0;
         private int attachTypePBC = 0;
 
-        [MenuItem("Tools/whiteflare/PhysBone Setup Helper")]
         public static void ShowWindow()
         {
             var window = GetWindow<PhysBoneSetupHelper>(Title);
