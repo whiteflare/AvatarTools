@@ -40,7 +40,7 @@ namespace WF.Tool.Avatar.AvTexTool
         {
             var window = GetWindow<AvatarTexTool>("Avatar Texture Tool");
             var go = Selection.activeGameObject;
-            if (go != null)
+            if (go != null && window.rootObject != go)
             {
                 window.rootObject = go;
                 window.UpdateTreeView();
@@ -160,27 +160,12 @@ namespace WF.Tool.Avatar.AvTexTool
 
         private void DoApply()
         {
-            var paths = new List<string>();
-            foreach (var tv in treeView.items)
-            {
-                if (tv.ApplyValue())
-                {
-                    var path = AssetDatabase.GetAssetPath(tv.texture);
-                    if (!string.IsNullOrEmpty(path))
-                    {
-                        paths.Add(path);
-                    }
-                }
-            }
-
-            AssetDatabase.SaveAssets();
-
             AssetDatabase.StartAssetEditing();
             try
             {
-                foreach (var path in paths)
+                foreach (var tv in treeView.items)
                 {
-                    AssetDatabase.ImportAsset(path);
+                    tv.ApplyValue();
                 }
             }
             finally
@@ -339,17 +324,48 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 #endif
+
+            if (root != null)
+            {
+                foreach(var spr in root.GetComponentsInChildren<UnityEngine.UI.Image>(true).Select(img => img.sprite))
+                {
+                    if (spr == null)
+                        continue;
+                    texs.Add(spr.texture);
+                    texs.Add(spr.associatedAlphaSplitTexture);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < SceneManager.sceneCount; i++)
+                {
+                    var scene = SceneManager.GetSceneAt(i);
+                    foreach (var go in scene.GetRootGameObjects())
+                    {
+                        foreach (var spr in go.GetComponentsInChildren<UnityEngine.UI.Image>(true).Select(img => img.sprite))
+                        {
+                            if (spr == null)
+                                continue;
+                            texs.Add(spr.texture);
+                            texs.Add(spr.associatedAlphaSplitTexture);
+                        }
+                    }
+                }
+            }
+
             // ここまでで special = false の TxTreeViewItem を作成する
             var items = new List<TxTreeViewItem>();
             items.AddRange(texs.Where(tex => tex != null).Distinct().Select(tex => new TxTreeViewItem(tex, false)));
 
             // VRCSDKから差し替えられるものを再検索して、リストアップされていないテクスチャを special = true で追加する
+#if ENV_VRCSDK3_AVATAR
             foreach(var tex in FindTexture(root, true))
             {
                 if (texs.Contains(tex))
                     continue;
                 items.Add(new TxTreeViewItem(tex, true));
             }
+#endif
 
             return items.ToArray();
         }
@@ -433,19 +449,26 @@ namespace WF.Tool.Avatar.AvTexTool
             return result.ToArray();
         }
 
+        // 基本情報
         const int COL_TextureName = 0;
-        const int COL_TextureType = 1;
-        const int COL_TextureWidth = 2;
-        const int COL_TextureHeight = 3;
-        const int COL_MipmapCount = 4;
-        const int COL_VRAMSize = 5;
-        const int COL_MaxSize = 6;
-        const int COL_Compression = 7;
-        const int COL_CrunchCompression = 8;
-        const int COL_CrunchQuality = 9;
-        const int COL_ActualFormat = 10;
-        const int COL_GenerateMipmap = 11;
-        const int COL_StreamingMipmap = 12;
+        const int COL_VRAMSize = 1;
+        const int COL_TextureType = 2;
+        // サイズ
+        const int COL_MaxSize = 3;
+        const int COL_NPOTScale = 4;
+        const int COL_TextureWidth = 5;
+        const int COL_TextureHeight = 6;
+        const int COL_TextureOriginalWidth = 7;
+        const int COL_TextureOriginalHeight = 8;
+        // フォーマット
+        const int COL_Compression = 9;
+        const int COL_CrunchCompression = 10;
+        const int COL_CrunchQuality = 11;
+        const int COL_ActualFormat = 12;
+        // ミップマップ
+        const int COL_GenerateMipmap = 13;
+        const int COL_StreamingMipmap = 14;
+        const int COL_MipmapCount = 15;
 
         internal class TxTreeViewItem
         {
@@ -461,6 +484,7 @@ namespace WF.Tool.Avatar.AvTexTool
             private int? changedCrunchQuality = null;
             private bool? changedGenerateMipmaps = null;
             private bool? changedStreamingMipmaps = null;
+            private TextureImporterNPOTScale? changedNpotScale = null;
 
             public TxTreeViewItem(Texture texture, bool special)
             {
@@ -562,6 +586,7 @@ namespace WF.Tool.Avatar.AvTexTool
                     || changedCrunchQuality != null
                     || changedGenerateMipmaps != null
                     || changedStreamingMipmaps != null
+                    || changedNpotScale != null
                     ;
             }
 
@@ -573,6 +598,7 @@ namespace WF.Tool.Avatar.AvTexTool
                 changedCrunchQuality = null;
                 changedGenerateMipmaps = null;
                 changedStreamingMipmaps = null;
+                changedNpotScale = null;
             }
 
             public bool ApplyValue()
@@ -610,9 +636,13 @@ namespace WF.Tool.Avatar.AvTexTool
                     if (importer.mipmapEnabled && changedStreamingMipmaps != null)
                         importer.streamingMipmaps = (bool)changedStreamingMipmaps;
 
+                    if (changedNpotScale != null)
+                        importer.npotScale = (TextureImporterNPOTScale) changedNpotScale;
+
                     ClearDirtyValue();
 
-                    EditorUtility.SetDirty(importer);
+                    importer.SaveAndReimport();
+
                     return true;
                 }
                 return false;
@@ -628,10 +658,32 @@ namespace WF.Tool.Avatar.AvTexTool
                 {
                     case COL_TextureName:
                         return texture.name;
+
                     case COL_TextureWidth:
                         return texture.width;
                     case COL_TextureHeight:
                         return texture.height;
+
+#if UNITY_2021_2_OR_NEWER
+                        // オリジナルのサイズを取得
+                    case COL_TextureOriginalWidth:
+                        if (importer != null)
+                        {
+                            importer.GetSourceTextureWidthAndHeight(out var width, out var height);
+                            return width;
+                        }
+                        return null;
+                    case COL_TextureOriginalHeight:
+                        if (importer != null)
+                        {
+                            importer.GetSourceTextureWidthAndHeight(out var width, out var height);
+                            return height;
+                        }
+                        return null;
+#endif
+
+                    case COL_NPOTScale:
+                        return GetTextureNpotScale();
                     case COL_MipmapCount:
                         if (texture.mipmapCount <= 1)
                             return null;
@@ -682,6 +734,8 @@ namespace WF.Tool.Avatar.AvTexTool
                         return changedGenerateMipmaps != null;
                     case COL_StreamingMipmap:
                         return changedStreamingMipmaps != null;
+                    case COL_NPOTScale:
+                        return changedNpotScale != null;
 
                     default:
                         return false;
@@ -698,15 +752,24 @@ namespace WF.Tool.Avatar.AvTexTool
                 switch (t)
                 {
                     case TextureImporterType.Default:
+                        {
+                            var s = importer.textureShape;
+                            if (s == TextureImporterShape.Texture2D)
+                                return "2D";
+                            if (s == TextureImporterShape.TextureCube)
+                                return "Cube";
+                            return string.Format("{0} {1}", t, s);
+                        }
                     case TextureImporterType.NormalMap:
                     case TextureImporterType.SingleChannel:
-                        var s = importer.textureShape;
-                        if (s == TextureImporterShape.Texture2D)
-                            return string.Format("{0} {1}", t, "2D");
-                        if (s == TextureImporterShape.TextureCube)
-                            return string.Format("{0} {1}", t, "Cube");
-                        return string.Format("{0} {1}", t, s);
-
+                        {
+                            var s = importer.textureShape;
+                            if (s == TextureImporterShape.Texture2D)
+                                return string.Format("{0} {1}", t, "2D");
+                            if (s == TextureImporterShape.TextureCube)
+                                return string.Format("{0} {1}", t, "Cube");
+                            return string.Format("{0} {1}", t, s);
+                        }
                     default:
                         return t.ToString();
                 }
@@ -724,6 +787,38 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
                 var settings = GetCurrentPlatformSettingsOverridden() ?? importer.GetDefaultPlatformTextureSettings();
                 return settings.maxTextureSize;
+            }
+
+            public object GetTextureNpotScale()
+            {
+                if (importer == null)
+                {
+                    return null;
+                }
+                if (texture.dimension == TextureDimension.Cube)
+                {
+                    return null;
+                }
+#if UNITY_2021_2_OR_NEWER
+                // オリジナルのサイズを取得
+                importer.GetSourceTextureWidthAndHeight(out var width, out var height);
+                if (Mathf.IsPowerOfTwo(width) && Mathf.IsPowerOfTwo(height))
+                {
+                    return null;
+                }
+                if (changedNpotScale != null)
+                {
+                    return changedNpotScale;
+                }
+                return importer.npotScale;
+#else
+                // TextureImporter.GetSourceTextureWidthAndHeight が無いので2019ではNPOTかどうかを返却するだけにする
+                if (Mathf.IsPowerOfTwo(texture.width) && Mathf.IsPowerOfTwo(texture.height))
+                {
+                    return null;
+                }
+                return "NPOT";
+#endif
             }
 
             public TextureImporterCompression? GetTextureCompression()
@@ -939,6 +1034,14 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
+            public void SetTextureNpotScale(TextureImporterNPOTScale v)
+            {
+                var ns = GetTextureNpotScale();
+                if (ns != null && v != (TextureImporterNPOTScale)ns)
+                {
+                    changedNpotScale = v;
+                }
+            }
 
             private static bool isCrunchSupported(TextureImporterFormat? format)
             {
@@ -1230,8 +1333,23 @@ namespace WF.Tool.Avatar.AvTexTool
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
+                    headerContent = new GUIContent("VRAM", "VRAM"),
+                    width = 90,
+                });
+                column.Add(new MultiColumnHeaderState.Column
+                {
                     headerContent = new GUIContent("Type", "Type"),
-                    width = 120,
+                    width = 50,
+                });
+                column.Add(new MultiColumnHeaderState.Column
+                {
+                    headerContent = new GUIContent("Max Size", "Max Size"),
+                    width = 60,
+                });
+                column.Add(new MultiColumnHeaderState.Column
+                {
+                    headerContent = new GUIContent("Non-Power of 2", "Non-Power of 2"),
+                    width = 50,
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
@@ -1245,28 +1363,23 @@ namespace WF.Tool.Avatar.AvTexTool
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
-                    headerContent = new GUIContent("MipMap Count", "MipMap Count"),
+                    headerContent = new GUIContent("Original Width", "Original Width"),
                     width = 50,
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
-                    headerContent = new GUIContent("VRAM", "VRAM"),
-                    width = 90,
-                });
-                column.Add(new MultiColumnHeaderState.Column
-                {
-                    headerContent = new GUIContent("Max Size", "Max Size"),
-                    width = 90,
+                    headerContent = new GUIContent("Original Height", "Original Height"),
+                    width = 50,
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
                     headerContent = new GUIContent("Compression", "Compression"),
-                    width = 90,
+                    width = 80,
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
                     headerContent = new GUIContent("Use Crunch Compression", "Use Crunch Compression"),
-                    width = 50,
+                    width = 30,
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
@@ -1281,12 +1394,17 @@ namespace WF.Tool.Avatar.AvTexTool
                 column.Add(new MultiColumnHeaderState.Column
                 {
                     headerContent = new GUIContent("Generate Mipmaps", "Generate Mipmaps"),
-                    width = 50,
+                    width = 30,
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
                     headerContent = new GUIContent("Streaming Mipmaps", "Streaming Mipmaps"),
-                    width = 50,
+                    width = 30,
+                });
+                column.Add(new MultiColumnHeaderState.Column
+                {
+                    headerContent = new GUIContent("MipMap Count", "MipMap Count"),
+                    width = 30,
                 });
 
                 var state = new MultiColumnHeaderState(column.ToArray());
@@ -1502,6 +1620,42 @@ namespace WF.Tool.Avatar.AvTexTool
                         case COL_VRAMSize:
                             var size = (long)info.GetValue(COL_VRAMSize);
                             GUI.Label(cellRect, ToPrettyString((long)info.GetValue(idx)));
+                            break;
+
+#if UNITY_2021_2_OR_NEWER
+                        case COL_NPOTScale:
+                            var npot = (TextureImporterNPOTScale?)info.GetTextureNpotScale();
+                            if (npot != null)
+                            {
+                                DrawCellGUI(item,
+                                    () =>
+                                    {
+                                        using (new ModifiedMarkScope(info.IsDirtyValue(idx), MARK_MODIFIED))
+                                        {
+                                            return (TextureImporterNPOTScale) EditorGUI.EnumPopup(cellRect, (TextureImporterNPOTScale)npot);
+                                        }
+                                    },
+                                    (t, v) => t.SetTextureNpotScale(v));
+                            }
+                            break;
+#endif
+                        case COL_TextureOriginalWidth:
+                            {
+                                var value = info.GetValue(idx);
+                                if (value != null)
+                                {
+                                    GUI.Label(cellRect, "( " + value);
+                                }
+                            }
+                            break;
+                        case COL_TextureOriginalHeight:
+                            {
+                                var value = info.GetValue(idx);
+                                if (value != null)
+                                {
+                                    GUI.Label(cellRect, value + " )");
+                                }
+                            }
                             break;
 
                         default:
