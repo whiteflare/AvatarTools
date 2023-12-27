@@ -15,4 +15,4 @@ Unity の AnimationController や VRCSDK3 の VRCExpressionParameters などを�
 # 著作権とライセンスは何ですか？
 
 MIT LICENSE での公開です。LICENSE.txt もご確認ください。
-Copyright (C) 2021-2022 whiteflare
+Copyright (C) 2021-2024 whiteflare
