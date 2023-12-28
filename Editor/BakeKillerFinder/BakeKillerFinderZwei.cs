@@ -67,7 +67,7 @@ namespace VKetEditorTools.BakeKillerFinder
                     FindInScene<MeshFilter>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(IsIllegalUV2)),
 
             new CheckingTask("ライトベイクがクラッシュするレベル", "Lightmap static な TextMeshPro",
-                HELP_URL + "#",
+                HELP_URL + "#Lightmap%20static%20%E3%81%AA%20TextMeshPro",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(HasTextMeshPro)),
 
