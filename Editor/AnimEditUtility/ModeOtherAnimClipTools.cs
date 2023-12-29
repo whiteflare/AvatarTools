@@ -55,18 +55,12 @@ namespace WF.Tool.Avatar.AnimEdit
 
         private void PropertyDstClips(string name, string title)
         {
-            var so = new SerializedObject(this);
-            so.Update();
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.PropertyField(so.FindProperty(name), new GUIContent(title), true);
-            if (EditorGUI.EndChangeCheck())
-            {
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
+            EditorGUILayout.PropertyField(serializedThis.FindProperty(name), new GUIContent(title), true);
         }
 
         public override void OnGUI()
         {
+            serializedThis.Update();
             var oldColor = GUI.color;
 
             GUILayout.Label("Set LoopTime", StyleHeader);
@@ -157,6 +151,8 @@ namespace WF.Tool.Avatar.AnimEdit
                     ExecuteGenerateResetAnim();
                 }
             }
+
+            serializedThis.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private void ExecutePropertyCopyIfAbsent()

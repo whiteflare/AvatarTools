@@ -261,14 +261,14 @@ namespace WF.Tool.Avatar
             var color_attention = new Color(1, 1, 0.75f);
 
             var rect = EditorGUILayout.GetControlRect();
-            rect.x += 16;
-            EditorGUI.PropertyField(rect, prop, labelArray, false);
 
-            rect.x -= 16;
-            rect.width = 16;
+            var rect2 = new Rect(rect.x + 4f, rect.y + 2f, 13f, 13f);
+            prop.isExpanded = EditorGUI.Foldout(rect2, prop.isExpanded, "");
+
+            rect.x += 20f;
             EditorGUI.showMixedValue = check.Distinct().Count() == 2;
             EditorGUI.BeginChangeCheck();
-            var allCheck = EditorGUI.ToggleLeft(rect, "", check.Any(v => v));
+            var allCheck = EditorGUI.ToggleLeft(rect, labelArray, check.Any(v => v));
             if (EditorGUI.EndChangeCheck())
             {
                 for (int i = 0; i < check.Length; i++)
@@ -284,24 +284,27 @@ namespace WF.Tool.Avatar
 
                 EditorGUI.BeginChangeCheck();
 
-                int size = Math.Max(0, EditorGUILayout.DelayedIntField("Size", list.Count));
+                //int size = Math.Max(0, EditorGUILayout.DelayedIntField("Size", list.Count));
+                //var newList = new T[size];
+                //if (check.Length != size)
+                //{
+                //    Array.Resize(ref check, size);
+                //}
+                int size = list.Count;
                 var newList = new T[size];
-                if (check.Length != size)
-                {
-                    Array.Resize(ref check, size);
-                }
                 for (int i = 0; i < size; i++)
                 {
                     var item = i < list.Count ? list[i] : null;
 
                     rect = EditorGUILayout.GetControlRect();
-                    rect.x += 16;
+                    rect.x += 40;
+                    rect.width -= 40;
 
                     if (isHighlight(item))
                     {
                         GUI.color = color_attention;
                     }
-                    newList[i] = EditorGUI.ObjectField(rect, new GUIContent("array " + i), item, typeof(T), true) as T;
+                    newList[i] = EditorGUI.ObjectField(rect, "", item, typeof(T), true) as T;
                     GUI.color = oldColor;
 
                     rect.x -= 16;

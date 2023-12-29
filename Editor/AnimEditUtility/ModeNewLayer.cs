@@ -53,6 +53,7 @@ namespace WF.Tool.Avatar.AnimEdit
 
         public override void OnGUI()
         {
+            serializedParam.Update();
             var oldColor = GUI.color;
 
             ////////////////
@@ -105,15 +106,8 @@ namespace WF.Tool.Avatar.AnimEdit
 
             OnGuiSub_ClipEditButtons();
 
-            var so = new SerializedObject(param);
-            so.Update();
-            EditorGUI.BeginChangeCheck();
             using (new ChangeColorScope(param.clips.Length == 0 ? lightRed : GUI.color))
-                EditorGUILayout.PropertyField(so.FindProperty("clips"), new GUIContent(LabelAnimationClip), true);
-            if (EditorGUI.EndChangeCheck())
-            {
-                so.ApplyModifiedProperties();
-            }
+                EditorGUILayout.PropertyField(serializedParam.FindProperty("clips"), new GUIContent(LabelAnimationClip), true);
 
 #if ENV_VRCSDK3_AVATAR
             EditorGUILayout.Space();
@@ -139,6 +133,8 @@ namespace WF.Tool.Avatar.AnimEdit
             {
                 ExecuteAll();
             }
+
+            serializedParam.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private void OnGuiSub_ClipEditButtons()

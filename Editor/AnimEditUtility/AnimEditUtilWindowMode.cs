@@ -45,9 +45,14 @@ namespace WF.Tool.Avatar.AnimEdit
 
         public event System.Action<AnimEditUtilWindowEditMode> AfterExecute;
 
+        protected SerializedObject serializedThis;
+        protected SerializedObject serializedParam;
+
         public virtual void ResetCommonParam(AnimEditUtilWindowCommonParam newParam)
         {
             this.param = newParam;
+            this.serializedThis = new SerializedObject(this);
+            this.serializedParam = new SerializedObject(this.param);
         }
 
         public virtual void OnGUI()

@@ -73,9 +73,12 @@ namespace WF.Tool.Avatar
             }
         }
 
+        private SerializedObject serializedObject;
+
         private void OnEnable()
         {
             SceneView.duringSceneGui += OnSceneViewGUI;
+            serializedObject = new SerializedObject(this);
         }
 
         private void OnDisable()
@@ -100,6 +103,7 @@ namespace WF.Tool.Avatar
 
         private void OnGUI()
         {
+            serializedObject.Update();
             var oldColor = GUI.color;
 
             // スクロール開始
@@ -116,39 +120,30 @@ namespace WF.Tool.Avatar
                 DoGetObjectFromRoot();
             }
 
-            var so = new SerializedObject(this);
-            so.Update();
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(skinMeshRenderers)), new GUIContent("SkinnedMeshRenderer (" + skinMeshRenderers.Count + ")"), true);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(meshRenderers)), new GUIContent("MeshRenderer (" + meshRenderers.Count + ")"), true);
+            EditorGUILayout.Space();
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(rootBone)), new GUIContent("RootBone (Hip)", "RootBoneに設定するTransform"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(anchorTarget)), new GUIContent("AnchorOverride", "AnchorOverrideに設定するTransform"));
+            EditorGUILayout.Space();
 
-            EditorGUI.BeginChangeCheck();
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(calcMode)), new GUIContent("Calc Method", "計算方法の指定"));
+
+            using (new EditorGUI.DisabledGroupScope(rootObject == null || rootBone == null || skinMeshRenderers.Count == 0))
             {
-                EditorGUILayout.PropertyField(so.FindProperty(nameof(skinMeshRenderers)), new GUIContent("SkinnedMeshRenderer (" + skinMeshRenderers.Count + ")"), true);
-                EditorGUILayout.PropertyField(so.FindProperty(nameof(meshRenderers)), new GUIContent("MeshRenderer (" + meshRenderers.Count + ")"), true);
-                EditorGUILayout.Space();
-                EditorGUILayout.PropertyField(so.FindProperty(nameof(rootBone)), new GUIContent("RootBone (Hip)", "RootBoneに設定するTransform"));
-                EditorGUILayout.PropertyField(so.FindProperty(nameof(anchorTarget)), new GUIContent("AnchorOverride", "AnchorOverrideに設定するTransform"));
-                EditorGUILayout.Space();
-
-                EditorGUILayout.PropertyField(so.FindProperty(nameof(calcMode)), new GUIContent("Calc Method", "計算方法の指定"));
-
-                using (new EditorGUI.DisabledGroupScope(rootObject == null || rootBone == null || skinMeshRenderers.Count == 0))
+                if (GUILayout.Button("Calculate Bounds"))
                 {
-                    if (GUILayout.Button("Calculate Bounds"))
-                    {
-                        so.ApplyModifiedProperties();
-                        DoCalcBounds();
-                        so.Update();
-                    }
+                    serializedObject.ApplyModifiedProperties();
+                    DoCalcBounds();
                 }
-
-                EditorGUILayout.Space();
-
-                EditorGUILayout.PropertyField(so.FindProperty(nameof(bounds)), new GUIContent("Bounds"));
-                EditorGUILayout.PropertyField(so.FindProperty(nameof(showWireFrame)), new GUIContent("show wire frame", "Boundsの値をワイヤーフレームで表示する"));
             }
-            if (EditorGUI.EndChangeCheck())
-            {
-                so.ApplyModifiedProperties();
-            }
+
+            EditorGUILayout.Space();
+
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(bounds)), new GUIContent("Bounds"));
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(showWireFrame)), new GUIContent("show wire frame", "Boundsの値をワイヤーフレームで表示する"));
+
+            serializedObject.ApplyModifiedProperties();
 
             EditorGUILayout.Space();
 
