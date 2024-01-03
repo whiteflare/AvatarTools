@@ -160,6 +160,9 @@ namespace WF.Tool.Avatar.AvTexTool
 
         private void DoApply()
         {
+            ClearViewSelection();
+            Selection.activeObject = null;
+
             AssetDatabase.StartAssetEditing();
             try
             {
@@ -174,17 +177,20 @@ namespace WF.Tool.Avatar.AvTexTool
             }
 
             RegisterDelayedRefleshVRAMSize();
-            ClearViewSelection();
+            ActiveEditorTracker.sharedTracker.ForceRebuild();
         }
 
         private void DoRevert()
         {
+            ClearViewSelection();
+            Selection.activeObject = null;
+
             foreach (var tv in treeView.items)
             {
                 tv.ClearDirtyValue();
             }
+
             RegisterDelayedRefleshVRAMSize();
-            ClearViewSelection();
         }
 
         private bool registered = false;
