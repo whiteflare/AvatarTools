@@ -191,6 +191,7 @@ namespace WF.Tool.Avatar.AnimEdit
             }
             else
             {
+                asset.name = exist.name;
                 EditorUtility.CopySerialized(asset, exist);
                 EditorUtility.SetDirty(exist);
                 AssetDatabase.SaveAssets();
