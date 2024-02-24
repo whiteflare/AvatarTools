@@ -24,6 +24,12 @@ using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+#if UNITY_2021_2_OR_NEWER
+using UnityEditor.SceneManagement;
+#else
+using UnityEditor.Experimental.SceneManagement;
+#endif
+
 namespace WF.Tool.Avatar.AvTexTool
 {
     enum MatSelectMode
@@ -207,15 +213,24 @@ namespace WF.Tool.Avatar.AvTexTool
         public IEnumerable<Material> GetAllMaterialsInScene(List<Material> result = null)
         {
             InitList(ref result);
-            for (int i = 0; i < SceneManager.sceneCount; i++)
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage != null)
             {
-                var scene = SceneManager.GetSceneAt(i);
-                if (scene.isLoaded)
-                {
-                    GetAllMaterials(scene, result);
-                }
+                GetAllMaterials(prefabStage.scene, result);
             }
-
+            else
+            {
+                for (int i = 0; i < SceneManager.sceneCount; i++)
+                {
+                    var scene = SceneManager.GetSceneAt(i);
+                    if (scene.isLoaded)
+                    {
+                        GetAllMaterials(scene, result);
+                    }
+                }
+                // スカイボックス取得
+                GetAllMaterials(RenderSettings.skybox, result);
+            }
             return result;
         }
 
@@ -226,8 +241,6 @@ namespace WF.Tool.Avatar.AvTexTool
             {
                 return result;
             }
-            // スカイボックス取得
-            GetAllMaterials(RenderSettings.skybox, result);
             // 各GameObject配下のマテリアルを取得
             return GetAllMaterials(scene.GetRootGameObjects(), result);
         }
