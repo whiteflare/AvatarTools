@@ -375,7 +375,7 @@ namespace WF.Tool.Avatar
 
                 r.probeAnchor = anchorTarget;
 
-                if (IsSkinMeshRendererWithoutBones(r))
+                if (r.sharedMesh != null && IsSkinMeshRendererWithoutBones(r))
                 {
                     // ボーンで動いていない場合はリセットできない
                     continue;
