@@ -1132,9 +1132,9 @@ namespace WF.Tool.Avatar
             return null;
         }
 
-#endregion
+        #endregion
 
-#region Transformのコピー
+        #region Transformのコピー
 
         private void SyncTransform(Dictionary<GameObject, GameObject> map, Transform dstT)
         {
@@ -1172,9 +1172,9 @@ namespace WF.Tool.Avatar
             return modified;
         }
 
-#endregion
+        #endregion
 
-#region 関連するGameObjectを取得する系
+        #region 関連するGameObjectを取得する系
 
         private List<Transform> GetHumanoidBoneTransforms(GameObject go)
         {
@@ -1247,9 +1247,9 @@ namespace WF.Tool.Avatar
             return go.transform;
         }
 
-#endregion
+        #endregion
 
-#region 参照チェックと警告ログ
+        #region 参照チェックと警告ログ
 
         private void CheckReference(Transform[] dstAllTransforms, Component cmp)
         {
@@ -1387,9 +1387,9 @@ namespace WF.Tool.Avatar
             return ts.Where(t => t != null).Any(t => !dstAllTransforms.Contains(t.transform));
         }
 
-#endregion
+        #endregion
 
-#endregion
+        #endregion
     }
 }
 
