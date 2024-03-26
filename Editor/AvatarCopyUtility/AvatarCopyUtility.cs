@@ -45,19 +45,20 @@ namespace WF.Tool.Avatar
         public List<GameObject> oldBones = new List<GameObject>();
         public List<GameObject> newBones = new List<GameObject>();
 
-        public List<GameObject> tAVD = new List<GameObject>();
-        public List<GameObject> tSMR = new List<GameObject>();
-        public List<GameObject> tMR = new List<GameObject>();
-        public List<GameObject> tPB = new List<GameObject>();
-        public List<GameObject> tPBC = new List<GameObject>();
-        public List<GameObject> tCS = new List<GameObject>();
-        public List<GameObject> tCR = new List<GameObject>();
-        public List<GameObject> tPosC = new List<GameObject>();
-        public List<GameObject> tRotC = new List<GameObject>();
-        public List<GameObject> tScaC = new List<GameObject>();
-        public List<GameObject> tParC = new List<GameObject>();
-        public List<GameObject> tLkaC = new List<GameObject>();
-        public List<GameObject> tAimC = new List<GameObject>();
+        public List<GameObject> tgtAvatarDesc = new List<GameObject>();
+        public List<GameObject> tgtSkinnedMeshR = new List<GameObject>();
+        public List<GameObject> tgtMeshR = new List<GameObject>();
+        public List<GameObject> tgtPhysBone = new List<GameObject>();
+        public List<GameObject> tgtPhysBoneCollider = new List<GameObject>();
+        public List<GameObject> tgtContactSender = new List<GameObject>();
+        public List<GameObject> tgtContactReceiver = new List<GameObject>();
+        public List<GameObject> tgtPositionC = new List<GameObject>();
+        public List<GameObject> tgtRotationC = new List<GameObject>();
+        public List<GameObject> tgtScaleC = new List<GameObject>();
+        public List<GameObject> tgtParentC = new List<GameObject>();
+        public List<GameObject> tgtLookAtC = new List<GameObject>();
+        public List<GameObject> tgtAimC = new List<GameObject>();
+        public List<GameObject> tgtParticleSystem = new List<GameObject>();
 
         private readonly Type[] COPY_TARGET_TYPE = {
             typeof(VRCAvatarDescriptor),
@@ -73,23 +74,25 @@ namespace WF.Tool.Avatar
             typeof(ParentConstraint),
             typeof(LookAtConstraint),
             typeof(AimConstraint),
+            typeof(ParticleSystem),
         };
 
         private readonly List<string> COPY_FIELD_NAME = new List<string>()
         {
-            "tAVD",
-            "tSMR",
-            "tMR",
-            "tPB",
-            "tPBC",
-            "tCS",
-            "tCR",
-            "tPosC",
-            "tRotC",
-            "tScaC",
-            "tParC",
-            "tLkaC",
-            "tAimC",
+            nameof(tgtAvatarDesc),
+            nameof(tgtSkinnedMeshR),
+            nameof(tgtMeshR),
+            nameof(tgtPhysBone),
+            nameof(tgtPhysBoneCollider),
+            nameof(tgtContactSender),
+            nameof(tgtContactReceiver),
+            nameof(tgtPositionC),
+            nameof(tgtRotationC),
+            nameof(tgtScaleC),
+            nameof(tgtParentC),
+            nameof(tgtLookAtC),
+            nameof(tgtAimC),
+            nameof(tgtParticleSystem),
         };
 
         private readonly List<List<GameObject>> targetComponents = new List<List<GameObject>>();
@@ -632,27 +635,142 @@ namespace WF.Tool.Avatar
             return EditorUtility.DisplayDialog(Title, "Continue modify Objects?\nオブジェクトを変更しますか？", "OK", "CANCEL");
         }
 
-        private void RegisterRemapComponent(Dictionary<Component, Component> cmpRemap, Type t, GameObject src, GameObject dst)
+        private void ExecuteCopy()
         {
-            if (src != null && dst != null)
+            // Undo
+            Undo.RegisterFullObjectHierarchyUndo(dstRoot, "Transfer Armature");
+
+            // Src と Dst の GameObject マッピング辞書
+            var remapGo = new Dictionary<GameObject, GameObject>();
+            for (int i = 0; i < oldBones.Count(); i++)
             {
-                var srcArray = src.GetComponents(t);
-                var dstArray = dst.GetComponents(t);
-                if (dstArray.Length < srcArray.Length)
+                var src = i < oldBones.Count ? oldBones[i] : null;
+                if (src != null)
                 {
-                    for (int i = dstArray.Length; i < srcArray.Length; i++)
-                    {
-                        Undo.AddComponent(dst.gameObject, t);
-                    }
-                    dstArray = dst.GetComponents(t);
+                    var dst = i < newBones.Count ? newBones[i] : null;
+                    remapGo[src] = dst != null ? dst : null;
                 }
-                int size = Math.Min(srcArray.Length, dstArray.Length);
-                for (int i = 0; i < size; i++)
+            }
+
+            //-------------------------------------------------
+            // GameObject の用意
+            //-------------------------------------------------
+            {
+                var prepareSrcGos = new List<GameObject>();
+                prepareSrcGos.AddRange(remapGo.Where(ent => ent.Value == null && IsCopyTargetGameObject(ent.Key)).Select(ent => ent.Key));
+                prepareSrcGos.AddRange(GetAllSkinnedMeshBones(GetCopyTargetComponents<SkinnedMeshRenderer>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetPhysBoneAffectedTransforms(GetCopyTargetComponents<VRCPhysBone>()).Select(t => t.gameObject));
+                foreach (var src in prepareSrcGos.Distinct())
                 {
-                    cmpRemap[srcArray[i]] = dstArray[i];
+                    PrepareGameObject(remapGo, src, true);
+                }
+            }
+
+            //-------------------------------------------------
+            // コピー対象の列挙
+            //-------------------------------------------------
+
+            // Src と Dst の Component マッピング辞書
+            var remapCmp = new Dictionary<Component, Component>();
+            foreach (var ent in remapGo)
+            {
+                if (ent.Value == null)
+                {
+                    continue;
+                }
+                foreach (var t in COPY_TARGET_TYPE)
+                {
+                    if (IsCopyTargetGameObject(ent.Key, t))
+                    {
+                        RegisterRemapComponent(remapCmp, t, ent.Key, ent.Value);
+                        if (t == typeof(MeshRenderer))
+                        {
+                            // もしコピーしようとしているのが MeshRenderer であれば、MeshFilter も一緒にコピーする
+                            RegisterRemapComponent(remapCmp, typeof(MeshFilter), ent.Key, ent.Value);
+                        }
+                        if (t == typeof(ParticleSystem))
+                        {
+                            // もしコピーしようとしているのが ParticleSystem であれば、ParticleSystemRenderer も一緒にコピーする
+                            RegisterRemapComponent(remapCmp, typeof(ParticleSystemRenderer), ent.Key, ent.Value);
+                        }
+                    }
+                }
+            }
+
+            //-------------------------------------------------
+            // 値のコピー
+            //-------------------------------------------------
+            foreach (var ent in remapCmp)
+            {
+                EditorUtility.CopySerialized(ent.Key, ent.Value);
+            }
+
+            //-------------------------------------------------
+            // 参照の再接続
+            //-------------------------------------------------
+            foreach (var dst in remapCmp.Values)
+            {
+                UpdateReference(remapGo, dst);
+            }
+
+            //-------------------------------------------------
+            // Transformのコピー
+            //-------------------------------------------------
+            var copyTransformDsts = new List<Transform>();
+            foreach (var dst in remapCmp.Values)
+            {
+                if (dst is VRCPhysBone dstPB)
+                {
+                    // VRCLeafTipBoneの座標を合わせる
+                    foreach (var t in GetPhysBoneAffectedTransforms(dstPB))
+                    {
+                        if (!string.IsNullOrEmpty(t.name) && t.name.StartsWith("VRCLeafTipBone"))
+                        {
+                            copyTransformDsts.Add(t);
+                        }
+                    }
+                }
+                if (dst is VRCPhysBoneCollider dstPBC)
+                {
+                    // コライダーの座標を合わせる
+                    copyTransformDsts.Add(dstPBC.rootTransform != null ? dstPBC.rootTransform : dstPBC.transform);
+                }
+            }
+            var dstBoneList = GetHumanoidBoneTransforms(dstRoot); // dst 側の Humanoid に紐づいている bone リスト
+            foreach (var t in copyTransformDsts.Distinct())
+            {
+                // ただしHumanoidボーンに割り当てられているTransformは変更しない
+                if (dstBoneList.Contains(t))
+                {
+                    continue;
+                }
+                SyncTransform(remapGo, t);
+            }
+
+            //-------------------------------------------------
+            // 参照チェックと警告ログ
+            //-------------------------------------------------
+            var dstAllTransforms = dstRoot.GetComponentsInChildren<Transform>(true);
+            foreach (var dst in remapCmp.Values)
+            {
+                CheckReference(dstAllTransforms, dst);
+            }
+
+            //-------------------------------------------------
+            // dest の書き戻し
+            //-------------------------------------------------
+            for (int i = 0; i < newBones.Count; i++)
+            {
+                var dst = newBones[i];
+                var src = i < oldBones.Count ? oldBones[i] : null;
+                if (src != null && dst == null && remapGo.TryGetValue(src, out var newDst))
+                {
+                    newBones[i] = newDst;
                 }
             }
         }
+
+        #region GameObject の用意
 
         private GameObject PrepareGameObject(Dictionary<GameObject, GameObject> mapRemap, GameObject srcGo, bool deepCreate)
         {
@@ -707,6 +825,22 @@ namespace WF.Tool.Avatar
             newGo.SetActive(srcGo.activeSelf);
         }
 
+        #endregion
+
+        #region コピー対象の列挙
+
+        private bool IsCopyTargetGameObject(GameObject go)
+        {
+            for (int i = 0; i < targetComponents.Count; i++)
+            {
+                if (IsCopyTargetGameObject(go, targetComponents[i], checkComponents[i]))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private bool IsCopyTargetGameObject(GameObject go, List<GameObject> list, bool[] check)
         {
             int length = Math.Min(list.Count, check.Length);
@@ -725,18 +859,6 @@ namespace WF.Tool.Avatar
             for (int i = 0; i < targetComponents.Count; i++)
             {
                 if (COPY_TARGET_TYPE[i] == t && IsCopyTargetGameObject(go, targetComponents[i], checkComponents[i]))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private bool IsCopyTargetGameObject(GameObject go)
-        {
-            for (int i = 0; i < targetComponents.Count; i++)
-            {
-                if (IsCopyTargetGameObject(go, targetComponents[i], checkComponents[i]))
                 {
                     return true;
                 }
@@ -765,228 +887,31 @@ namespace WF.Tool.Avatar
             return result.Distinct().ToList();
         }
 
-        private List<Transform> GetPhysBoneAffectedTransforms(List<VRCPhysBone> bones)
+        private void RegisterRemapComponent(Dictionary<Component, Component> cmpRemap, Type t, GameObject src, GameObject dst)
         {
-            var result = new List<Transform>();
-            foreach (var bone in bones)
+            if (src != null && dst != null)
             {
-                result.AddRange(GetPhysBoneAffectedTransforms(bone));
-            }
-            return result.Distinct().ToList();
-        }
-
-        private List<Transform> GetPhysBoneAffectedTransforms(VRCPhysBone bone)
-        {
-            var result = new List<Transform>();
-            var root = bone.rootTransform != null ? bone.rootTransform : bone.gameObject.transform; // ?? 演算子は使えない
-            // root 配下を全て追加
-            result.AddRange(root.GetComponentsInChildren<Transform>(true));
-            foreach (var ignores in bone.ignoreTransforms)
-            {
-                if (ignores != null)
+                var srcArray = src.GetComponents(t);
+                var dstArray = dst.GetComponents(t);
+                if (dstArray.Length < srcArray.Length)
                 {
-                    // ignores 配下を全て削除
-                    foreach (var ig in ignores.GetComponentsInChildren<Transform>(true))
+                    for (int i = dstArray.Length; i < srcArray.Length; i++)
                     {
-                        result.Remove(ig);
+                        Undo.AddComponent(dst.gameObject, t);
                     }
+                    dstArray = dst.GetComponents(t);
                 }
-            }
-            return result;
-        }
-
-        private void ExecuteCopy()
-        {
-            // Undo
-            Undo.RegisterFullObjectHierarchyUndo(dstRoot, "Transfer Armature");
-
-            // Src と Dst の GameObject マッピング辞書
-            var remapGo = new Dictionary<GameObject, GameObject>();
-            for (int i = 0; i < oldBones.Count(); i++)
-            {
-                var src = i < oldBones.Count ? oldBones[i] : null;
-                if (src != null)
+                int size = Math.Min(srcArray.Length, dstArray.Length);
+                for (int i = 0; i < size; i++)
                 {
-                    var dst = i < newBones.Count ? newBones[i] : null;
-                    remapGo[src] = dst != null ? dst : null;
-                }
-            }
-
-            // GameObject の用意
-            {
-                var prepareSrcGos = new List<GameObject>();
-                prepareSrcGos.AddRange(remapGo.Where(ent => ent.Value == null && IsCopyTargetGameObject(ent.Key)).Select(ent => ent.Key));
-                prepareSrcGos.AddRange(GetAllSkinnedMeshBones(GetCopyTargetComponents<SkinnedMeshRenderer>()).Select(t => t.gameObject));
-                prepareSrcGos.AddRange(GetPhysBoneAffectedTransforms(GetCopyTargetComponents<VRCPhysBone>()).Select(t => t.gameObject));
-                foreach (var src in prepareSrcGos.Distinct())
-                {
-                    PrepareGameObject(remapGo, src, true);
-                }
-            }
-
-            // Src と Dst の Component マッピング辞書
-            var remapCmp = new Dictionary<Component, Component>();
-            foreach (var ent in remapGo)
-            {
-                if (ent.Value == null)
-                {
-                    continue;
-                }
-                foreach (var t in COPY_TARGET_TYPE)
-                {
-                    if (IsCopyTargetGameObject(ent.Key, t))
-                    {
-                        RegisterRemapComponent(remapCmp, t, ent.Key, ent.Value);
-                        if (t == typeof(MeshRenderer))
-                        {
-                            // もしコピーしようとしているのが MeshRenderer であれば、MeshFilter も一緒にコピーする
-                            RegisterRemapComponent(remapCmp, typeof(MeshFilter), ent.Key, ent.Value);
-                        }
-                    }
-                }
-            }
-
-            // 値のコピー
-            foreach (var ent in remapCmp)
-            {
-                EditorUtility.CopySerialized(ent.Key, ent.Value);
-            }
-
-            // 参照の再接続
-            foreach (var dst in remapCmp.Values)
-            {
-                UpdateReference(remapGo, dst);
-            }
-
-            // dst 側の Humanoid に紐づいている bone リスト
-            var dstBoneList = GetHumanoidBoneTransforms(dstRoot);
-
-            // Transformのコピー
-            var copyTransformDsts = new List<Transform>();
-            foreach (var dst in remapCmp.Values)
-            {
-                if (dst is VRCPhysBone dstPB)
-                {
-                    // VRCLeafTipBoneの座標を合わせる
-                    foreach (var t in GetPhysBoneAffectedTransforms(dstPB))
-                    {
-                        if (!string.IsNullOrEmpty(t.name) && t.name.StartsWith("VRCLeafTipBone"))
-                        {
-                            copyTransformDsts.Add(t);
-                        }
-                    }
-                }
-                if (dst is VRCPhysBoneCollider dstPBC)
-                {
-                    // コライダーの座標を合わせる
-                    copyTransformDsts.Add(dstPBC.rootTransform != null ? dstPBC.rootTransform : dstPBC.transform);
-                }
-            }
-            foreach(var t in copyTransformDsts.Distinct())
-            {
-                // ただしHumanoidボーンに割り当てられているTransformは変更しない
-                if (dstBoneList.Contains(t))
-                {
-                    continue;
-                }
-                SyncTransform(remapGo, t);
-            }
-
-            // 参照チェックと警告ログ
-            var dstAllTransforms = dstRoot.GetComponentsInChildren<Transform>(true);
-            foreach (var dst in remapCmp.Values)
-            {
-                CheckReference(dstAllTransforms, dst);
-            }
-
-            // dest の書き戻し
-            for (int i = 0; i < newBones.Count; i++)
-            {
-                var dst = newBones[i];
-                var src = i < oldBones.Count ? oldBones[i] : null;
-                if (src != null && dst == null && remapGo.TryGetValue(src, out var newDst))
-                {
-                    newBones[i] = newDst;
+                    cmpRemap[srcArray[i]] = dstArray[i];
                 }
             }
         }
 
-        private void SyncTransform(Dictionary<GameObject, GameObject> map, Transform dstT)
-        {
-            if (dstT != null)
-            {
-                // dst から src を逆引き
-                foreach (var ent in map)
-                {
-                    if (ent.Value == dstT)
-                    {
-                        CopyTransformIfDifference(ent.Key.transform, dstT);
-                    }
-                }
-            }
-        }
+        #endregion
 
-        private List<Transform> GetHumanoidBoneTransforms(GameObject go)
-        {
-            var result = new List<Transform>();
-            foreach (var anim in go.GetComponentsInChildren<Animator>(true))
-            {
-                if (anim.isHuman)
-                {
-                    foreach (var bone in (HumanBodyBones[])Enum.GetValues(typeof(HumanBodyBones)))
-                    {
-                        if (bone == HumanBodyBones.LastBone)
-                        {
-                            continue;
-                        }
-                        var t = anim.GetBoneTransform(bone);
-                        if (t != null)
-                        {
-                            result.Add(t);
-                        }
-                    }
-                }
-            }
-            return result;
-        }
-
-        private List<Transform> GetAllSkinnedMeshBones(List<SkinnedMeshRenderer> list)
-        {
-            return list.SelectMany(smr => smr.bones).Where(b => b != null).Distinct().ToList();
-        }
-
-        private Transform GetAnimationRootTransforms(GameObject go)
-        {
-            foreach (var anim in go.GetComponentsInChildren<Animator>(true))
-            {
-                if (anim.isHuman)
-                {
-                    return anim.GetBoneTransform(HumanBodyBones.Hips);
-                }
-            }
-            return go.transform;
-        }
-
-        private static bool CopyTransformIfDifference(Transform src, Transform dst)
-        {
-            bool modified = false;
-            if (0.001 < (dst.position - src.position).magnitude)
-            {
-                modified = true;
-                dst.position = src.position;    // ワールド座標系で一致するようにコピー
-                var lp = dst.localPosition; // もしローカル座標系で0に近い値だったら0にしてしまう
-                lp.x = Mathf.Abs(lp.x) < 1e-5f ? 0 : lp.x;
-                lp.y = Mathf.Abs(lp.y) < 1e-5f ? 0 : lp.y;
-                lp.z = Mathf.Abs(lp.z) < 1e-5f ? 0 : lp.z;
-                dst.localPosition = lp;
-            }
-            if (0.01 < (dst.transform.rotation.eulerAngles - src.transform.rotation.eulerAngles).magnitude)
-            {
-                modified = true;
-                dst.transform.rotation = src.transform.rotation;
-            }
-            return modified;
-        }
+        #region 参照の再接続
 
         private bool UpdateReference(Dictionary<GameObject, GameObject> goRemap, Component cmp)
         {
@@ -1066,198 +991,26 @@ namespace WF.Tool.Avatar
                 UpdateReference(goRemap, avd.collider_torso.transform, t => avd.collider_torso.transform = t);
             }
 
+            // ParticleSystem
+            if (cmp is ParticleSystem ps)
+            {
+                var trigger = ps.trigger;
+                for (int i = 0; i < trigger.colliderCount; i++)
+                {
+                    UpdateReference(goRemap, trigger.GetCollider(i), c => trigger.SetCollider(i, c));
+                }
+
+                var subEmitters = ps.subEmitters;
+                for (int i = 0; i < subEmitters.subEmittersCount; i++)
+                {
+                    UpdateReference(goRemap, subEmitters.GetSubEmitterSystem(i), c => subEmitters.SetSubEmitterSystem(i, c));
+                }
+
+                var lights = ps.lights;
+                UpdateReference(goRemap, lights.light, c => lights.light = c);
+            }
+
             return false;
-        }
-
-        private bool IsOutOfAvatar<T>(Transform[] dstAllTransforms, T cmp) where T : Component
-        {
-            if (cmp == null)
-            {
-                return false;
-            }
-            return !dstAllTransforms.Contains(cmp.transform);
-        }
-
-        private bool IsOutOfAvatar<T>(Transform[] dstAllTransforms, IEnumerable<T> ts) where T : Component
-        {
-            if (ts == null)
-            {
-                return false;
-            }
-            return ts.Where(t => t != null).Any(t => !dstAllTransforms.Contains(t.transform));
-        }
-
-        private void CheckReference(Transform[] dstAllTransforms, Component cmp)
-        {
-            // PhysBone
-            if (cmp is VRCPhysBone pbDst)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, pbDst.rootTransform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の rootTransform がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, pbDst.ignoreTransforms))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の ignoreTransforms がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, pbDst.colliders))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の colliders がアバター外を参照しています。", cmp);
-                }
-            }
-            if (cmp is VRCPhysBoneCollider pcDst)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, pcDst.rootTransform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の rootTransform がアバター外を参照しています。", cmp);
-                }
-            }
-
-            // Contact
-            if (cmp is VRCContactSender cnsDst)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, cnsDst.rootTransform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の rootTransform がアバター外を参照しています。", cmp);
-                }
-            }
-            if (cmp is VRCContactReceiver cnrDst)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, cnrDst.rootTransform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の rootTransform がアバター外を参照しています。", cmp);
-                }
-            }
-
-            // Constraint
-            if (cmp is IConstraint csDst)
-            {
-                var list = new List<ConstraintSource>();
-                csDst.GetSources(list);
-                if (IsOutOfAvatar(dstAllTransforms, list.Select(t => t.sourceTransform)))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の ConstraintSource がアバター外を参照しています。", cmp);
-                }
-            }
-            if (cmp is LookAtConstraint lkaDst)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, lkaDst.worldUpObject))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の worldUpObject がアバター外を参照しています。", cmp);
-                }
-            }
-            if (cmp is AimConstraint aimDst)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, aimDst.worldUpObject))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の worldUpObject がアバター外を参照しています。", cmp);
-                }
-            }
-
-            // Renderer
-            if (cmp is SkinnedMeshRenderer smr)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, smr.probeAnchor))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の probeAnchor がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, smr.rootBone))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の rootBone がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, smr.bones))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の bones がアバター外を参照しています。", cmp);
-                }
-            }
-            if (cmp is MeshRenderer mr)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, mr.probeAnchor))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の probeAnchor がアバター外を参照しています。", cmp);
-                }
-            }
-
-            if (cmp is VRCAvatarDescriptor avd)
-            {
-                if (IsOutOfAvatar(dstAllTransforms, avd.VisemeSkinnedMesh))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の VisemeSkinnedMesh がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.lipSyncJawBone))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の lipSyncJawBone がアバター外を参照しています。", cmp);
-                }
-                if (avd.enableEyeLook)
-                {
-                    var eyeLook = avd.customEyeLookSettings;
-                    if (IsOutOfAvatar(dstAllTransforms, eyeLook.leftEye))
-                    {
-                        Debug.LogWarningFormat(cmp, "{0} の leftEye がアバター外を参照しています。", cmp);
-                    }
-                    if (IsOutOfAvatar(dstAllTransforms, eyeLook.rightEye))
-                    {
-                        Debug.LogWarningFormat(cmp, "{0} の rightEye がアバター外を参照しています。", cmp);
-                    }
-                    if (IsOutOfAvatar(dstAllTransforms, eyeLook.eyelidsSkinnedMesh))
-                    {
-                        Debug.LogWarningFormat(cmp, "{0} の eyelidsSkinnedMesh がアバター外を参照しています。", cmp);
-                    }
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerIndexL.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerIndexL がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerIndexR.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerIndexR がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerLittleL.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerLittleL がアバター外を参照しています。", cmp);
-                }
-               if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerLittleR.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerLittleR がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerMiddleL.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerMiddleL がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerMiddleR.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerMiddleR がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerRingL.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerRingL がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_fingerRingR.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_fingerRingR がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_footL.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_footL がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_footR.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_footR がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_handL.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_handL がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_handR.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_handR がアバター外を参照しています。", cmp);
-                }
-                if (IsOutOfAvatar(dstAllTransforms, avd.collider_torso.transform))
-                {
-                    Debug.LogWarningFormat(cmp, "{0} の collider_torso がアバター外を参照しています。", cmp);
-                }
-
-            }
         }
 
         private bool UpdateReference(Dictionary<GameObject, GameObject> map, IConstraint cs)
@@ -1341,7 +1094,7 @@ namespace WF.Tool.Avatar
             return modified;
         }
 
-        private bool UpdateReference<T>(Dictionary<GameObject, GameObject> map, T cmp, Action<T> setter) where T: Component
+        private bool UpdateReference<T>(Dictionary<GameObject, GameObject> map, T cmp, Action<T> setter) where T : Component
         {
             if (cmp == null)
             {
@@ -1377,7 +1130,262 @@ namespace WF.Tool.Avatar
             return null;
         }
 
-#endregion
+        #endregion
+
+        #region Transformのコピー
+
+        private void SyncTransform(Dictionary<GameObject, GameObject> map, Transform dstT)
+        {
+            if (dstT != null)
+            {
+                // dst から src を逆引き
+                foreach (var ent in map)
+                {
+                    if (ent.Value == dstT)
+                    {
+                        CopyTransformIfDifference(ent.Key.transform, dstT);
+                    }
+                }
+            }
+        }
+
+        private static bool CopyTransformIfDifference(Transform src, Transform dst)
+        {
+            bool modified = false;
+            if (0.001 < (dst.position - src.position).magnitude)
+            {
+                modified = true;
+                dst.position = src.position;    // ワールド座標系で一致するようにコピー
+                var lp = dst.localPosition; // もしローカル座標系で0に近い値だったら0にしてしまう
+                lp.x = Mathf.Abs(lp.x) < 1e-5f ? 0 : lp.x;
+                lp.y = Mathf.Abs(lp.y) < 1e-5f ? 0 : lp.y;
+                lp.z = Mathf.Abs(lp.z) < 1e-5f ? 0 : lp.z;
+                dst.localPosition = lp;
+            }
+            if (0.01 < (dst.transform.rotation.eulerAngles - src.transform.rotation.eulerAngles).magnitude)
+            {
+                modified = true;
+                dst.transform.rotation = src.transform.rotation;
+            }
+            return modified;
+        }
+
+        #endregion
+
+        #region 関連するGameObjectを取得する系
+
+        private List<Transform> GetHumanoidBoneTransforms(GameObject go)
+        {
+            var result = new List<Transform>();
+            foreach (var anim in go.GetComponentsInChildren<Animator>(true))
+            {
+                if (anim.isHuman)
+                {
+                    foreach (var bone in (HumanBodyBones[])Enum.GetValues(typeof(HumanBodyBones)))
+                    {
+                        if (bone == HumanBodyBones.LastBone)
+                        {
+                            continue;
+                        }
+                        var t = anim.GetBoneTransform(bone);
+                        if (t != null)
+                        {
+                            result.Add(t);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        private List<Transform> GetPhysBoneAffectedTransforms(List<VRCPhysBone> bones)
+        {
+            var result = new List<Transform>();
+            foreach (var bone in bones)
+            {
+                result.AddRange(GetPhysBoneAffectedTransforms(bone));
+            }
+            return result.Distinct().ToList();
+        }
+
+        private List<Transform> GetPhysBoneAffectedTransforms(VRCPhysBone bone)
+        {
+            var result = new List<Transform>();
+            var root = bone.rootTransform != null ? bone.rootTransform : bone.gameObject.transform; // ?? 演算子は使えない
+            // root 配下を全て追加
+            result.AddRange(root.GetComponentsInChildren<Transform>(true));
+            foreach (var ignores in bone.ignoreTransforms)
+            {
+                if (ignores != null)
+                {
+                    // ignores 配下を全て削除
+                    foreach (var ig in ignores.GetComponentsInChildren<Transform>(true))
+                    {
+                        result.Remove(ig);
+                    }
+                }
+            }
+            return result;
+        }
+
+        private List<Transform> GetAllSkinnedMeshBones(List<SkinnedMeshRenderer> list)
+        {
+            return list.SelectMany(smr => smr.bones).Where(b => b != null).Distinct().ToList();
+        }
+
+        private Transform GetAnimationRootTransforms(GameObject go)
+        {
+            foreach (var anim in go.GetComponentsInChildren<Animator>(true))
+            {
+                if (anim.isHuman)
+                {
+                    return anim.GetBoneTransform(HumanBodyBones.Hips);
+                }
+            }
+            return go.transform;
+        }
+
+        #endregion
+
+        #region 参照チェックと警告ログ
+
+        private void CheckReference(Transform[] dstAllTransforms, Component cmp)
+        {
+            // Renderer
+            if (cmp is Renderer r)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, r.probeAnchor, "probeAnchor");
+            }
+            if (cmp is SkinnedMeshRenderer smr)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, smr.rootBone, "rootBone");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, smr.bones, "bones");
+            }
+
+            // ParticleSystem
+            if (cmp is ParticleSystem ps)
+            {
+                var trigger = ps.trigger;
+                for (int i = 0; i < trigger.colliderCount; i++)
+                {
+                    CheckReferenceAndWarn(dstAllTransforms, cmp, trigger.GetCollider(i), "trigger");
+                }
+
+                var subEmitters = ps.subEmitters;
+                for (int i = 0; i < subEmitters.subEmittersCount; i++)
+                {
+                    CheckReferenceAndWarn(dstAllTransforms, cmp, subEmitters.GetSubEmitterSystem(i), "subEmitters");
+                }
+
+                var lights = ps.lights;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, lights.light, "lights");
+            }
+
+            // Constraint
+            if (cmp is IConstraint csDst)
+            {
+                var list = new List<ConstraintSource>();
+                csDst.GetSources(list);
+                CheckReferenceAndWarn(dstAllTransforms, cmp, list.Select(t => t.sourceTransform), "ConstraintSource");
+            }
+            if (cmp is LookAtConstraint lkaDst)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, lkaDst.worldUpObject, "worldUpObject");
+            }
+            if (cmp is AimConstraint aimDst)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, aimDst.worldUpObject, "worldUpObject");
+            }
+
+            // VRCAvatarDescriptor
+            if (cmp is VRCAvatarDescriptor avd)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.VisemeSkinnedMesh, "VisemeSkinnedMesh");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.lipSyncJawBone, "lipSyncJawBone");
+
+                if (avd.enableEyeLook)
+                {
+                    var eyeLook = avd.customEyeLookSettings;
+                    CheckReferenceAndWarn(dstAllTransforms, cmp, eyeLook.leftEye, "leftEye");
+                    CheckReferenceAndWarn(dstAllTransforms, cmp, eyeLook.rightEye, "rightEye");
+                    CheckReferenceAndWarn(dstAllTransforms, cmp, eyeLook.eyelidsSkinnedMesh, "eyelidsSkinnedMesh");
+                }
+
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerIndexL.transform, "collider_fingerIndexL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerIndexR.transform, "collider_fingerIndexR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerLittleL.transform, "collider_fingerLittleL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerLittleR.transform, "collider_fingerLittleR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerMiddleL.transform, "collider_fingerMiddleL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerMiddleR.transform, "collider_fingerMiddleR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerRingL.transform, "collider_fingerRingL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerRingR.transform, "collider_fingerRingR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_footL.transform, "collider_footL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_footR.transform, "collider_footR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_handL.transform, "collider_handL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_handR.transform, "collider_handR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_torso.transform, "collider_torso");
+            }
+
+            // PhysBone
+            if (cmp is VRCPhysBone pbDst)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, pbDst.rootTransform, "rootTransform");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, pbDst.ignoreTransforms, "ignoreTransforms");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, pbDst.colliders, "colliders");
+            }
+            if (cmp is VRCPhysBoneCollider pcDst)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, pcDst.rootTransform, "rootTransform");
+            }
+
+            // Contact
+            if (cmp is VRCContactSender cnsDst)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, cnsDst.rootTransform, "rootTransform");
+            }
+            if (cmp is VRCContactReceiver cnrDst)
+            {
+                CheckReferenceAndWarn(dstAllTransforms, cmp, cnrDst.rootTransform, "rootTransform");
+            }
+        }
+
+        private void CheckReferenceAndWarn<T>(Transform[] dstAllTransforms, Component parent, T property, string propertyName) where T : Component
+        {
+            if (IsOutOfAvatar(dstAllTransforms, property))
+            {
+                Debug.LogWarningFormat(parent, "{0} の {1} がアバター外を参照しています。", parent, propertyName);
+            }
+        }
+
+        private void CheckReferenceAndWarn<T>(Transform[] dstAllTransforms, Component parent, IEnumerable<T> properties, string propertyName) where T : Component
+        {
+            if (IsOutOfAvatar(dstAllTransforms, properties))
+            {
+                Debug.LogWarningFormat(parent, "{0} の {1} がアバター外を参照しています。", parent, propertyName);
+            }
+        }
+
+        private bool IsOutOfAvatar<T>(Transform[] dstAllTransforms, T cmp) where T : Component
+        {
+            if (cmp == null)
+            {
+                return false;
+            }
+            return !dstAllTransforms.Contains(cmp.transform);
+        }
+
+        private bool IsOutOfAvatar<T>(Transform[] dstAllTransforms, IEnumerable<T> ts) where T : Component
+        {
+            if (ts == null)
+            {
+                return false;
+            }
+            return ts.Where(t => t != null).Any(t => !dstAllTransforms.Contains(t.transform));
+        }
+
+        #endregion
+
+        #endregion
     }
 }
 
