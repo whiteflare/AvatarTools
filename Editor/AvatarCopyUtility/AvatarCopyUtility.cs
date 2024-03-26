@@ -994,11 +994,13 @@ namespace WF.Tool.Avatar
             // ParticleSystem
             if (cmp is ParticleSystem ps)
             {
+#if UNITY_2020_2_OR_NEWER
                 var trigger = ps.trigger;
                 for (int i = 0; i < trigger.colliderCount; i++)
                 {
                     UpdateReference(goRemap, trigger.GetCollider(i), c => trigger.SetCollider(i, c));
                 }
+#endif
 
                 var subEmitters = ps.subEmitters;
                 for (int i = 0; i < subEmitters.subEmittersCount; i++)
@@ -1130,9 +1132,9 @@ namespace WF.Tool.Avatar
             return null;
         }
 
-        #endregion
+#endregion
 
-        #region Transformのコピー
+#region Transformのコピー
 
         private void SyncTransform(Dictionary<GameObject, GameObject> map, Transform dstT)
         {
@@ -1170,9 +1172,9 @@ namespace WF.Tool.Avatar
             return modified;
         }
 
-        #endregion
+#endregion
 
-        #region 関連するGameObjectを取得する系
+#region 関連するGameObjectを取得する系
 
         private List<Transform> GetHumanoidBoneTransforms(GameObject go)
         {
@@ -1245,9 +1247,9 @@ namespace WF.Tool.Avatar
             return go.transform;
         }
 
-        #endregion
+#endregion
 
-        #region 参照チェックと警告ログ
+#region 参照チェックと警告ログ
 
         private void CheckReference(Transform[] dstAllTransforms, Component cmp)
         {
@@ -1265,11 +1267,13 @@ namespace WF.Tool.Avatar
             // ParticleSystem
             if (cmp is ParticleSystem ps)
             {
+#if UNITY_2020_2_OR_NEWER
                 var trigger = ps.trigger;
                 for (int i = 0; i < trigger.colliderCount; i++)
                 {
                     CheckReferenceAndWarn(dstAllTransforms, cmp, trigger.GetCollider(i), "trigger");
                 }
+#endif
 
                 var subEmitters = ps.subEmitters;
                 for (int i = 0; i < subEmitters.subEmittersCount; i++)
@@ -1383,9 +1387,9 @@ namespace WF.Tool.Avatar
             return ts.Where(t => t != null).Any(t => !dstAllTransforms.Contains(t.transform));
         }
 
-        #endregion
+#endregion
 
-        #endregion
+#endregion
     }
 }
 
