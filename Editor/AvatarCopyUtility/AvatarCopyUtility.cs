@@ -331,50 +331,42 @@ namespace WF.Tool.Avatar
         {
             var oldColor = GUI.color;
 
-            EditorGUILayout.PropertyField(firstProp, labelArray, false);
-            if (firstProp.isExpanded)
+            EditorGUI.BeginChangeCheck();
+
+            var color_attention = new Color(1, 1, 0.75f);
+
+            int size = Math.Max(0, EditorGUILayout.DelayedIntField("Size of Pair", Math.Max(firstList.Count, secondList.Count)));
+            var firstList2 = new T[size];
+            var secondList2 = new T[size];
+
+            for (int i = 0; i < size; i++)
             {
-                EditorGUI.indentLevel++;
+                var src = i < firstList.Count ? firstList[i] : null;
+                var dst = i < secondList.Count ? secondList[i] : null;
 
-                EditorGUI.BeginChangeCheck();
+                GUILayoutUtility.GetRect(6, 1);
 
-                var color_attention = new Color(1, 1, 0.75f);
-
-                int size = Math.Max(0, EditorGUILayout.DelayedIntField("Size of Pair", Math.Max(firstList.Count, secondList.Count)));
-                var firstList2 = new T[size];
-                var secondList2 = new T[size];
-
-                for (int i = 0; i < size; i++)
+                if (src == null)
                 {
-                    var src = i < firstList.Count ? firstList[i] : null;
-                    var dst = i < secondList.Count ? secondList[i] : null;
-
-                    GUILayoutUtility.GetRect(6, 1);
-
-                    if (src == null)
-                    {
-                        GUI.color = color_attention;
-                    }
-                    firstList2[i] = EditorGUILayout.ObjectField(new GUIContent(labelFirst + i), src, typeof(T), true) as T;
-                    GUI.color = oldColor;
-
-                    if (dst == null)
-                    {
-                        GUI.color = color_attention;
-                    }
-                    secondList2[i] = EditorGUILayout.ObjectField(new GUIContent(labelSecond + i), dst, typeof(T), true) as T;
-                    GUI.color = oldColor;
+                    GUI.color = color_attention;
                 }
+                firstList2[i] = EditorGUILayout.ObjectField(new GUIContent(labelFirst + i), src, typeof(T), true) as T;
+                GUI.color = oldColor;
 
-                if (EditorGUI.EndChangeCheck())
+                if (dst == null)
                 {
-                    firstList.Clear();
-                    firstList.AddRange(firstList2);
-                    secondList.Clear();
-                    secondList.AddRange(secondList2);
+                    GUI.color = color_attention;
                 }
+                secondList2[i] = EditorGUILayout.ObjectField(new GUIContent(labelSecond + i), dst, typeof(T), true) as T;
+                GUI.color = oldColor;
+            }
 
-                EditorGUI.indentLevel--;
+            if (EditorGUI.EndChangeCheck())
+            {
+                firstList.Clear();
+                firstList.AddRange(firstList2);
+                secondList.Clear();
+                secondList.AddRange(secondList2);
             }
         }
 
@@ -1241,7 +1233,11 @@ namespace WF.Tool.Avatar
             {
                 if (anim.isHuman)
                 {
-                    return anim.GetBoneTransform(HumanBodyBones.Hips);
+                    var ret = anim.GetBoneTransform(HumanBodyBones.Hips);
+                    if (ret != null)
+                    {
+                        return ret;
+                    }
                 }
             }
             return go.transform;
