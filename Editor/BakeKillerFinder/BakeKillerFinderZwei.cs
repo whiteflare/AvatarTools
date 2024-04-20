@@ -51,33 +51,33 @@ namespace VKetEditorTools.BakeKillerFinder
 
         private Vector2 _scrollPos = Vector2.zero;
 
-        private static readonly string HELP_URL = "https://esa-pages.io/p/sharing/15655/posts/24/8726e0f5c0b2e0eceea6.html";
+        private static readonly string HELP_URL = "https://whiteflare.github.io/vpm-repos/docs/tools/BakeKillerFinder";
 
         private readonly CheckingTask[] Tasks = {
             new CheckingTask("Unityがクラッシュするレベル", "Missing スクリプト",
-                HELP_URL + "#Missing%20%E3%82%B9%E3%82%AF%E3%83%AA%E3%83%97%E3%83%88",
+                HELP_URL + "#A1",
                 (rootObject, onlyActiveObject) => 
                     FindObjectInScene(rootObject, onlyActiveObject)
                     .Where(go => go.GetComponents<Component>().Any(cmp => cmp == null)) // null の Component ならば Missing Script
                     .Select(go => go.transform)),
 
             new CheckingTask("ライトベイクがクラッシュするレベル", "UV2 なし Lightmap static な MeshFilter",
-                HELP_URL + "#UV2%20%E3%81%AA%E3%81%97%20Lightmap%20static%20%E3%81%AA%20MeshFilter",
+                HELP_URL + "#B1",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<MeshFilter>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(IsIllegalUV2)),
 
             new CheckingTask("ライトベイクがクラッシュするレベル", "Lightmap static な TextMeshPro",
-                HELP_URL + "#Lightmap%20static%20%E3%81%AA%20TextMeshPro",
+                HELP_URL + "#B2",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(HasTextMeshPro)),
 
             new CheckingTask("ライトベイクがクラッシュするレベル", "Material なし Lightmap static な MeshRenderer",
-                HELP_URL + "#Material%20%E3%81%AA%E3%81%97%20Lightmap%20static%20%E3%81%AA%20MeshRenderer",
+                HELP_URL + "#B3",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(HasMissingMaterial)),
 
             new CheckingTask("エラーメッシュ", "Mesh なし Renderer",
-                HELP_URL + "#Mesh%20%E3%81%AA%E3%81%97%20Renderer",
+                HELP_URL + "#C1",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<SkinnedMeshRenderer>(rootObject, onlyActiveObject).Where(HasMissingMesh).Select(cmp => cmp.gameObject.transform)
                     .Union(FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(HasMissingMesh).Select(cmp => cmp.gameObject.transform))
@@ -85,52 +85,52 @@ namespace VKetEditorTools.BakeKillerFinder
                     .Distinct()),
 
             new CheckingTask("エラーメッシュ", "Material なし Renderer",
-                HELP_URL + "#Material%20%E3%81%AA%E3%81%97%20Renderer",
+                HELP_URL + "#C2",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<Renderer>(rootObject, onlyActiveObject).Where(HasMissingMaterial)),
 
             new CheckingTask("エラーメッシュ", "InternalErrorShader な Material のある Renderer",
-                HELP_URL + "#InternalErrorShader%20%E3%81%AA%20Material%20%E3%81%AE%E3%81%82%E3%82%8B%20Renderer",
+                HELP_URL + "#C3",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<Renderer>(rootObject, onlyActiveObject).Where(HasErrorShader)),
 
             new CheckingTask("エラーメッシュ", "SubMeshCount と Material スロット数が不一致",
-                HELP_URL + "#SubMeshCount%20%E3%81%A8%20Material%20%E3%82%B9%E3%83%AD%E3%83%83%E3%83%88%E6%95%B0%E3%81%8C%E4%B8%8D%E4%B8%80%E8%87%B4",
+                HELP_URL + "#C4",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<SkinnedMeshRenderer>(rootObject, onlyActiveObject).Where(HasUnmatchMaterialCount).Select(cmp => cmp.gameObject.transform)
                     .Union(FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(HasUnmatchMaterialCount).Select(cmp => cmp.gameObject.transform))),
 
             new CheckingTask("エラーメッシュ", "Missing Prefab",
-                HELP_URL + "#Missing%20Prefab",
+                HELP_URL + "#C5",
                 (rootObject, onlyActiveObject) =>
                     FindObjectInScene(rootObject, onlyActiveObject)
                     .Where(go => PrefabUtility.GetPrefabInstanceStatus(go) == PrefabInstanceStatus.MissingAsset)
                     .Select(go => go.transform)),
 
             new CheckingTask("エラーメッシュ", "Missing な Bone を含む SkinnedMeshRenderer",
-                HELP_URL + "#Missing%20%E3%81%AA%20Bone%20%E3%82%92%E5%90%AB%E3%82%80%20SkinnedMeshRenderer",
+                HELP_URL + "#C6",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<SkinnedMeshRenderer>(rootObject, onlyActiveObject).Where(HasMissingBone)),
 
             new CheckingTask("好ましくない設定", "全ての Static が true になっている Renderer",
-                HELP_URL + "#%E5%85%A8%E3%81%A6%E3%81%AE%20Static%20%E3%81%8C%20true%20%E3%81%AB%E3%81%AA%E3%81%A3%E3%81%A6%E3%81%84%E3%82%8B%20Renderer",
+                HELP_URL + "#D1",
                 (rootObject, onlyActiveObject) =>
                     FindInScene<Renderer>(rootObject, onlyActiveObject).Where(IsAllStatic)),
 
             new CheckingTask("好ましくない設定", "Unity Default-Material.mat を含む Renderer",
-                HELP_URL + "#Unity%20Default-Material.mat%20%E3%82%92%E5%90%AB%E3%82%80%20Renderer",
+                HELP_URL + "#D2",
                 (rootObject, onlyActiveObject) =>
                 {
                     var unityDefaultMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-Material.mat"); // エディタ上で取得する時はResourcesではなくAssetDatabase
                     return FindInScene<Renderer>(rootObject, onlyActiveObject).Where(renderer => renderer.sharedMaterials.Contains(unityDefaultMaterial));
                 }),
             new CheckingTask("好ましくない設定", "Unlit シェーダだが Lightmap static になっている Mesh Renderer",
-                HELP_URL + "#Unlit%20%E3%82%B7%E3%82%A7%E3%83%BC%E3%83%80%E3%81%A0%E3%81%8C%20Lightmap%20static%20%E3%81%AB%E3%81%AA%E3%81%A3%E3%81%A6%E3%81%84%E3%82%8B%20Mesh%20Renderer",
+                HELP_URL + "#D3",
                 (rootObject, onlyActiveObject) => 
                     FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(IsLightmapStatic).Where(HasUnlitShader)),
 
             new CheckingTask("好ましくない設定", "モデル組み込みマテリアルを含む Renderer",
-                HELP_URL + "#%E3%83%A2%E3%83%87%E3%83%AB%E7%B5%84%E3%81%BF%E8%BE%BC%E3%81%BF%E3%83%9E%E3%83%86%E3%83%AA%E3%82%A2%E3%83%AB%E3%82%92%E5%90%AB%E3%82%80%20Renderer",
+                HELP_URL + "#D4",
                 (rootObject, onlyActiveObject) => 
                     FindInScene<Renderer>(rootObject, onlyActiveObject).Where(HasModelImportedMaterial)),
         };
