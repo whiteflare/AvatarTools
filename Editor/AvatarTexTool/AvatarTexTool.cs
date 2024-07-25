@@ -20,6 +20,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -63,6 +64,11 @@ namespace WF.Tool.Avatar.AvTexTool
             }
             treeView = new TextureListView(treeViewState);
             UpdateTreeView();
+        }
+
+        private void OnDisable()
+        {
+            currentWindow = null;
         }
 
         private void OnHierarchyChange()
@@ -210,13 +216,23 @@ namespace WF.Tool.Avatar.AvTexTool
 
         internal class TexImportHook : AssetPostprocessor
         {
-            void OnPostprocessTexture(Texture2D texture)
+            private static readonly Regex rgExtension = new Regex(@"\.[^\.]+$", RegexOptions.Compiled);
+            private static readonly HashSet<string> extensions = new HashSet<string>()
             {
-                if (currentWindow == null)
+                ".png", ".psd", ".jpg", ".jpeg", ".tga", ".exr", ".hdr",
+            };
+
+            private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
+            {
+                var window = currentWindow;
+                if (window == null)
                 {
                     return;
                 }
-                currentWindow.RegisterDelayedRefleshVRAMSize();
+                if (importedAssets.Where(path => !string.IsNullOrEmpty(path)).Any(path => { var mm = rgExtension.Match(path); return mm.Success && extensions.Contains(mm.Value); }))
+                {
+                    window.RegisterDelayedRefleshVRAMSize();
+                }
             }
         }
 
