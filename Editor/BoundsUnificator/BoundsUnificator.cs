@@ -39,7 +39,7 @@ namespace WF.Tool.Avatar
         public Transform rootBone;
         public Transform anchorTarget;
         public Bounds bounds = new Bounds(Vector3.zero, Vector3.one * 2);
-        public BoundsCalcMode calcMode = BoundsCalcMode.PrefabValue;
+        public BoundsCalcMode calcMode = BoundsCalcMode.SkinnedVertex;
         public bool showWireFrame = true;
 
         Vector2 scroll = Vector2.zero;
@@ -51,13 +51,6 @@ namespace WF.Tool.Avatar
         {
             var window = EditorWindow.GetWindow<BoundsUnificator>(Title);
             window.SetSelection(Selection.GetFiltered(typeof(GameObject), SelectionMode.Editable | SelectionMode.ExcludePrefab));
-        }
-
-        internal enum BoundsCalcMode
-        {
-            PrefabValue,
-            CurrentValueOnly,
-            BoneTransform,
         }
 
         private void SetSelection(Object[] objects)
@@ -254,25 +247,47 @@ namespace WF.Tool.Avatar
         {
             if (t != null)
             {
-                // 元座標を追加
-                yield return t.position;
                 if (t.parent != null)
                 {
-                    // 周辺座標を追加
                     var d = t.InverseTransformPoint(t.parent.position).magnitude;
-                    yield return t.TransformPoint(new Vector3(0, 0, -d));
-                    yield return t.TransformPoint(new Vector3(0, 0, +d));
-                    yield return t.TransformPoint(new Vector3(0, -d, 0));
-                    yield return t.TransformPoint(new Vector3(0, +d, 0));
-                    yield return t.TransformPoint(new Vector3(-d, 0, 0));
-                    yield return t.TransformPoint(new Vector3(+d, 0, 0));
+                    foreach(var r in IterMergined(t, d))
+                    {
+                        yield return r;
+                    }
+                }
+                else
+                {
+                    // 元座標を追加
+                    yield return t.position;
                 }
             }
         }
 
+        private IEnumerable<Vector3> IterMergined(Transform t, float d)
+        {
+            yield return t.position;
+            yield return t.TransformPoint(new Vector3(0, 0, -d));
+            yield return t.TransformPoint(new Vector3(0, 0, +d));
+            yield return t.TransformPoint(new Vector3(0, -d, 0));
+            yield return t.TransformPoint(new Vector3(0, +d, 0));
+            yield return t.TransformPoint(new Vector3(-d, 0, 0));
+            yield return t.TransformPoint(new Vector3(+d, 0, 0));
+        }
+
+        private IEnumerable<Vector3> IterMergined(Vector3 v, float d)
+        {
+            yield return v;
+            yield return v + new Vector3(0, 0, -d);
+            yield return v + new Vector3(0, 0, +d);
+            yield return v + new Vector3(0, -d, 0);
+            yield return v + new Vector3(0, +d, 0);
+            yield return v + new Vector3(-d, 0, 0);
+            yield return v + new Vector3(+d, 0, 0);
+        }
+
         private void DoCalcBounds()
         {
-            var wsCorner = new List<Vector3>();
+            VertexCollector collector = new VertexCollector();
             foreach (var r in skinMeshRenderers)
             {
                 if (r == null)
@@ -287,43 +302,26 @@ namespace WF.Tool.Avatar
                 switch (calcMode)
                 {
                     case BoundsCalcMode.CurrentValueOnly:
-                        // bounds の頂点8箇所のワールド座標を追加
-                        if (r.bounds.extents != Vector3.zero)
-                        {
-                            wsCorner.AddRange(IterWorldSpaceCorner(r.bounds));
-                        }
+                        CalcCurrentValueOnly(collector, r);
                         break;
                     case BoundsCalcMode.PrefabValue:
-                        // Prefab側の bounds の頂点8箇所のワールド座標を追加
-                        if (r.bounds.extents != Vector3.zero)
-                        {
-                            var orig = PrefabUtility.GetCorrespondingObjectFromOriginalSource(r);
-                            if (orig != null)
-                            {
-                                wsCorner.AddRange(IterWorldSpaceCorner(orig.bounds, orig.rootBone, rootBone));
-                            }
-                            else
-                            {
-                                wsCorner.AddRange(IterWorldSpaceCorner(r.bounds));
-                            }
-                        }
+                        CalcPrefabValue(collector, r);
                         break;
                     case BoundsCalcMode.BoneTransform:
-                        // ボーンのワールド座標をすべて追加
-                        foreach (var t in r.bones)
-                        {
-                            wsCorner.AddRange(IterWorldSpaceCorner(t));
-                        }
+                        CalcBoneTransform(collector, r);
+                        break;
+                    case BoundsCalcMode.SkinnedVertex:
+                        CalcSkinnedVertex(collector, r);
                         break;
                 }
             }
-            if (wsCorner.Count == 0)
+            if (collector.count == 0)
             {
                 return;
             }
 
             // AABBの作成
-            var rawBounds = CreateBounds(wsCorner.Select(rootBone.worldToLocalMatrix.MultiplyPoint));
+            var rawBounds = CreateBounds(collector, rootBone);
             var center = rawBounds.center;
             var extents = rawBounds.extents;
 
@@ -344,13 +342,67 @@ namespace WF.Tool.Avatar
             bounds = new Bounds(center, extents * 2);
         }
 
-        private static Bounds CreateBounds(IEnumerable<Vector3> ps)
+        private void CalcPrefabValue(VertexCollector result, SkinnedMeshRenderer r)
+        {
+            // Prefab側の bounds の頂点8箇所のワールド座標を追加
+            if (r.bounds.extents != Vector3.zero)
+            {
+                var orig = PrefabUtility.GetCorrespondingObjectFromOriginalSource(r);
+                if (orig != null)
+                {
+                    result.AddRange(IterWorldSpaceCorner(orig.bounds, orig.rootBone, rootBone));
+                }
+                else
+                {
+                    result.AddRange(IterWorldSpaceCorner(r.bounds));
+                }
+            }
+        }
+
+        private void CalcCurrentValueOnly(VertexCollector result, SkinnedMeshRenderer r)
+        {
+            // bounds の頂点8箇所のワールド座標を追加
+            if (r.bounds.extents != Vector3.zero)
+            {
+                result.AddRange(IterWorldSpaceCorner(r.bounds));
+            }
+        }
+
+        private void CalcBoneTransform(VertexCollector result, SkinnedMeshRenderer r)
+        {
+            // ボーンのワールド座標をすべて追加
+            foreach (var t in r.bones)
+            {
+                result.AddRange(IterWorldSpaceCorner(t));
+            }
+        }
+
+        private void CalcSkinnedVertex(VertexCollector result, SkinnedMeshRenderer r)
+        {
+            // スキニングされた頂点座標
+            var go = new GameObject();
+            var smr = go.AddComponent<SkinnedMeshRenderer>();
+            EditorUtility.CopySerialized(r, smr);
+
+            var mesh = new Mesh();
+            smr.BakeMesh(mesh);
+            foreach(var v in mesh.vertices)
+            {
+                result.AddRange(IterMergined(v, 0.1f));
+            }
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(smr);
+            Object.DestroyImmediate(mesh);
+        }
+
+        private static Bounds CreateBounds(VertexCollector ps, Transform rootBone)
         {
             var result = new Bounds();
-            if (ps.Count() != 0)
+            if (ps.count != 0)
             {
-                var min = ps.Aggregate(Vector3.Min);
-                var max = ps.Aggregate(Vector3.Max);
+                var min = rootBone.worldToLocalMatrix.MultiplyPoint(ps.min);
+                var max = rootBone.worldToLocalMatrix.MultiplyPoint(ps.max);
                 result.center = Vector3.Lerp(min, max, 0.5f);
                 result.extents = max - result.center;
             }
@@ -398,6 +450,43 @@ namespace WF.Tool.Avatar
                     continue;
                 }
                 r.probeAnchor = anchorTarget;
+            }
+        }
+
+        internal enum BoundsCalcMode
+        {
+            SkinnedVertex,
+            PrefabValue,
+            CurrentValueOnly,
+            BoneTransform,
+        }
+
+        class VertexCollector
+        {
+            public Vector3 min = Vector3.zero;
+            public Vector3 max = Vector3.zero;
+            public int count = 0;
+
+            public void Add(Vector3 v)
+            {
+                if (count == 0)
+                {
+                    min = max = v;
+                }
+                else
+                {
+                    min = Vector3.Min(min, v);
+                    max = Vector3.Max(max, v);
+                }
+                count++;
+            }
+
+            public void AddRange(IEnumerable<Vector3> e)
+            {
+                foreach (var v in e)
+                {
+                    Add(v);
+                }
             }
         }
     }
