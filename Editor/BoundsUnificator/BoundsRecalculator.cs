@@ -95,7 +95,11 @@ namespace WF.Tool.Avatar.BU
 
         public void CalcBounds(BoundsCalcMode calcMode = BoundsCalcMode.SkinnedVertex)
         {
-            VertexCollector collector = new VertexCollector();
+            if (rootBone == null)
+            {
+                return;
+            }
+            VertexCollector collector = new VertexCollector(rootBone);
             foreach (var r in skinMeshRenderers)
             {
                 if (r == null)
@@ -226,49 +230,6 @@ namespace WF.Tool.Avatar.BU
             yield return new Vector3(wb.max.x, wb.max.y, wb.max.z);
         }
 
-        private IEnumerable<Vector3> IterWorldSpaceCorner(Transform t)
-        {
-            if (t != null)
-            {
-                if (t.parent != null)
-                {
-                    var d = t.InverseTransformPoint(t.parent.position).magnitude;
-                    foreach(var r in IterMergined(t, d))
-                    {
-                        yield return r;
-                    }
-                }
-                else
-                {
-                    // 元座標を追加
-                    yield return t.position;
-                }
-            }
-        }
-
-        private IEnumerable<Vector3> IterMergined(Transform t, float d)
-        {
-            yield return t.position;
-            yield return t.TransformPoint(new Vector3(0, 0, -d));
-            yield return t.TransformPoint(new Vector3(0, 0, +d));
-            yield return t.TransformPoint(new Vector3(0, -d, 0));
-            yield return t.TransformPoint(new Vector3(0, +d, 0));
-            yield return t.TransformPoint(new Vector3(-d, 0, 0));
-            yield return t.TransformPoint(new Vector3(+d, 0, 0));
-        }
-
-        private IEnumerable<Vector3> IterMergined(Vector3 v, float d)
-        {
-            yield return v;
-            yield return v + new Vector3(0, 0, -d);
-            yield return v + new Vector3(0, 0, +d);
-            yield return v + new Vector3(0, -d, 0);
-            yield return v + new Vector3(0, +d, 0);
-            yield return v + new Vector3(-d, 0, 0);
-            yield return v + new Vector3(+d, 0, 0);
-        }
-
-
         private void CalcPrefabValue(VertexCollector result, SkinnedMeshRenderer r)
         {
             // Prefab側の bounds の頂点8箇所のワールド座標を追加
@@ -300,7 +261,8 @@ namespace WF.Tool.Avatar.BU
             // ボーンのワールド座標をすべて追加
             foreach (var t in r.bones)
             {
-                result.AddRange(IterWorldSpaceCorner(t));
+                var d = t.parent == null ? 0 : t.InverseTransformPoint(t.parent.position).magnitude;
+                result.Add(t.position, d);
             }
         }
 
@@ -315,7 +277,7 @@ namespace WF.Tool.Avatar.BU
             smr.BakeMesh(mesh);
             foreach(var v in mesh.vertices)
             {
-                result.AddRange(IterMergined(v, 0.1f));
+                result.Add(v, 0.1f);
             }
 
             Object.DestroyImmediate(go);
@@ -328,10 +290,7 @@ namespace WF.Tool.Avatar.BU
             var result = new Bounds();
             if (ps.count != 0)
             {
-                var min = rootBone.worldToLocalMatrix.MultiplyPoint(ps.min);
-                var max = rootBone.worldToLocalMatrix.MultiplyPoint(ps.max);
-                result.center = Vector3.Lerp(min, max, 0.5f);
-                result.extents = max - result.center;
+                result.SetMinMax(ps.min, ps.max);
             }
             return result;
         }
@@ -346,8 +305,24 @@ namespace WF.Tool.Avatar.BU
             public Vector3 min = Vector3.zero;
             public Vector3 max = Vector3.zero;
             public int count = 0;
+            private readonly Transform rootBone;
 
-            public void Add(Vector3 v)
+            private readonly Vector3[] margin =
+            {
+                new Vector3(0, 0, -1),
+                new Vector3(0, 0, +1),
+                new Vector3(0, -1, 0),
+                new Vector3(0, +1, 0),
+                new Vector3(-1, 0, 0),
+                new Vector3(+1, 0, 0),
+            };
+
+            public VertexCollector(Transform rootBone)
+            {
+                this.rootBone = rootBone;
+            }
+
+            public void AddLocal(Vector3 v)
             {
                 if (count == 0)
                 {
@@ -361,15 +336,29 @@ namespace WF.Tool.Avatar.BU
                 count++;
             }
 
-            public void AddRange(IEnumerable<Vector3> e)
+            public void Add(Vector3 v, float d = 0)
+            {
+                v = rootBone.worldToLocalMatrix.MultiplyPoint(v);
+                AddLocal(v);
+                if (0 < d)
+                {
+                    foreach(var m in margin)
+                    {
+                        AddLocal(v + m * d);
+                    }
+                }
+            }
+
+            public void AddRange(IEnumerable<Vector3> e, float d = 0)
             {
                 foreach (var v in e)
                 {
-                    Add(v);
+                    Add(v, d);
                 }
             }
         }
     }
+
     internal enum BoundsCalcMode
     {
         SkinnedVertex,

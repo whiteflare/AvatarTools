@@ -36,8 +36,9 @@ namespace WF.Tool.Avatar.BU
         public BoundsCalcMode calcMode = BoundsCalcMode.SkinnedVertex;
         public bool showWireFrame = true;
 
-        Vector2 scroll = Vector2.zero;
+        private Vector2 scroll = Vector2.zero;
         private BoundsRecalculator boundsRecalculator;
+        private bool repaintHandle = false;
 
         public static void ShowWindow()
         {
@@ -53,6 +54,7 @@ namespace WF.Tool.Avatar.BU
                 {
                     rootObject = (GameObject)obj;
                     boundsRecalculator.SetAvatarRoot(rootObject);
+                    repaintHandle = true;
                     break;
                 }
             }
@@ -62,6 +64,7 @@ namespace WF.Tool.Avatar.BU
 
         private void OnEnable()
         {
+            repaintHandle = false;
             rootObject = null;
             boundsRecalculator = CreateInstance<BoundsRecalculator>();
             serializedObject = new SerializedObject(boundsRecalculator);
@@ -105,6 +108,7 @@ namespace WF.Tool.Avatar.BU
             if (EditorGUI.EndChangeCheck() && rootObject != oldRootObject)
             {
                 boundsRecalculator.SetAvatarRoot(rootObject);
+                repaintHandle = true;
             }
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.skinMeshRenderers)), new GUIContent("SkinnedMeshRenderer (" + boundsRecalculator.skinMeshRenderers.Count + ")"), true);
@@ -122,13 +126,21 @@ namespace WF.Tool.Avatar.BU
                 {
                     serializedObject.ApplyModifiedProperties();
                     boundsRecalculator.CalcBounds(calcMode);
+                    repaintHandle = true;
                 }
             }
 
             EditorGUILayout.Space();
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.bounds)), new GUIContent("Bounds"));
-            showWireFrame = EditorGUILayout.ToggleLeft(new GUIContent("show wire frame", "Boundsの値をワイヤーフレームで表示する"), showWireFrame);
+            EditorGUI.BeginChangeCheck();
+            {
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.bounds)), new GUIContent("Bounds"));
+                showWireFrame = EditorGUILayout.ToggleLeft(new GUIContent("show wire frame", "Boundsの値をワイヤーフレームで表示する"), showWireFrame);
+            }
+            if (EditorGUI.EndChangeCheck())
+            {
+                repaintHandle = true;
+            }
 
             serializedObject.ApplyModifiedProperties();
 
@@ -147,6 +159,12 @@ namespace WF.Tool.Avatar.BU
 
             // スクロール終了
             EditorGUILayout.EndScrollView();
+
+            if (repaintHandle)
+            {
+                SceneView.RepaintAll();
+                repaintHandle = false;
+            }
         }
 
         private static bool ConfirmContinue()
