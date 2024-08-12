@@ -15,12 +15,13 @@
  *  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-using UnityEditor;
 using UnityEngine;
 
 namespace WF.Tool.Avatar.BU
 {
+#if ENV_VRCSDK3_AVATAR && ENV_NDMF
     [AddComponentMenu("Flare's Avatar Tools/Bounds Unificator/[BU] Set Anchor And Bounds")]
+#endif
     [DisallowMultipleComponent]
     public class SetAnchorAndBounds : MonoBehaviour
 #if ENV_VRCSDK3_AVATAR
