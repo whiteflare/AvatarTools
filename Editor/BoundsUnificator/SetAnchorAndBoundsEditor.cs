@@ -30,18 +30,17 @@ namespace WF.Tool.Avatar.BU
 
         public override void OnInspectorGUI ()
         {
-#if !ENV_VRCSDK3_AVATAR
-            EditorGUILayout.HelpBox("VRCSDK3 Avatars 環境ではないため、このコンポーネントは無視されます。", MessageType.Warning);
-#elif !ENV_NDMF
-            EditorGUILayout.HelpBox("Non-Destructive Modular Framework が導入されていないため、このコンポーネントは無視されます。", MessageType.Warning);
-#else
             var component = target as SetAnchorAndBounds;
             if (component == null)
             {
                 return;
             }
 
-            // メッセージ
+#if !ENV_VRCSDK3_AVATAR
+            EditorGUILayout.HelpBox("VRCSDK3 Avatars 環境ではないため、このコンポーネントは無視されます。", MessageType.Warning);
+#elif !ENV_NDMF
+            EditorGUILayout.HelpBox("Non-Destructive Modular Framework が導入されていないため、このコンポーネントは無視されます。", MessageType.Warning);
+#else
             if (component.GetComponent<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>() == null)
             {
                 EditorGUILayout.HelpBox("このコンポーネントは VRC AvatarDescriptor と同じ GameObject に追加してください。", MessageType.Error);
@@ -55,6 +54,7 @@ namespace WF.Tool.Avatar.BU
             {
                 EditorGUILayout.HelpBox("コンポーネントを有効にするとビルド時に AnchorOverride と Bounds が自動で設定されます。", MessageType.Warning);
             }
+#endif
 
             serializedObject.Update();
 
@@ -85,8 +85,6 @@ namespace WF.Tool.Avatar.BU
                     }
                 }
             }
-
-#endif
         }
     }
 }
