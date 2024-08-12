@@ -196,38 +196,41 @@ namespace WF.Tool.Avatar.BU
             }
         }
 
-        private IEnumerable<Vector3> IterWorldSpaceCorner(Bounds wb, Transform origBase, Transform newBase)
+        private IEnumerable<Vector3> IterWorldSpaceCorner(Bounds lb, Transform origBase, Transform newBase)
         {
             if (origBase == null)
             {
                 origBase = newBase;
             }
             var scale = SafeDivide(newBase.lossyScale, origBase.lossyScale);
-            return IterWorldSpaceCorner(wb)
+            return IterLocalSpaceCorner(lb)
+                .Select(p => Vector3.Scale(p, scale))
+                .Select(origBase.localToWorldMatrix.MultiplyPoint)
                 .Select(p => p + (newBase.position - origBase.position))
-                .Select(p => LerpUnclamped(newBase.position, p, scale));
+                ;
         }
 
-        private static Vector3 SafeDivide(Vector3 x, Vector3 y)
+        private static Vector3 SafeDivide(Vector3 a, Vector3 b)
         {
-            return new Vector3(y.x == 0 ? 1 : x.x / y.x, y.y == 0 ? 1 : x.y / y.y, y.z == 0 ? 1 : x.z / y.z);
+            return new Vector3(b.x == 0 ? 1 : a.x / b.x, b.y == 0 ? 1 : a.y / b.y, b.z == 0 ? 1 : a.z / b.z);
         }
 
-        private static Vector3 LerpUnclamped(Vector3 b, Vector3 v, Vector3 scale)
+        private IEnumerable<Vector3> IterLocalSpaceCorner(Bounds lb)
         {
-            return new Vector3(Mathf.LerpUnclamped(b.x, v.x, scale.x), Mathf.LerpUnclamped(b.y, v.y, scale.y), Mathf.LerpUnclamped(b.z, v.z, scale.z));
+            yield return new Vector3(lb.min.x, lb.min.y, lb.min.z);
+            yield return new Vector3(lb.min.x, lb.min.y, lb.max.z);
+            yield return new Vector3(lb.min.x, lb.max.y, lb.min.z);
+            yield return new Vector3(lb.min.x, lb.max.y, lb.max.z);
+            yield return new Vector3(lb.max.x, lb.min.y, lb.min.z);
+            yield return new Vector3(lb.max.x, lb.min.y, lb.max.z);
+            yield return new Vector3(lb.max.x, lb.max.y, lb.min.z);
+            yield return new Vector3(lb.max.x, lb.max.y, lb.max.z);
         }
 
-        private IEnumerable<Vector3> IterWorldSpaceCorner(Bounds wb)
+        private IEnumerable<Vector3> IterWorldSpaceCorner(Bounds lb, Transform rootBone)
         {
-            yield return new Vector3(wb.min.x, wb.min.y, wb.min.z);
-            yield return new Vector3(wb.min.x, wb.min.y, wb.max.z);
-            yield return new Vector3(wb.min.x, wb.max.y, wb.min.z);
-            yield return new Vector3(wb.min.x, wb.max.y, wb.max.z);
-            yield return new Vector3(wb.max.x, wb.min.y, wb.min.z);
-            yield return new Vector3(wb.max.x, wb.min.y, wb.max.z);
-            yield return new Vector3(wb.max.x, wb.max.y, wb.min.z);
-            yield return new Vector3(wb.max.x, wb.max.y, wb.max.z);
+            var l2w = rootBone != null ? rootBone.localToWorldMatrix : Matrix4x4.identity;
+            return IterLocalSpaceCorner(lb).Select(l2w.MultiplyPoint);
         }
 
         private void CalcPrefabValue(VertexCollector result, SkinnedMeshRenderer r)
@@ -238,11 +241,11 @@ namespace WF.Tool.Avatar.BU
                 var orig = PrefabUtility.GetCorrespondingObjectFromOriginalSource(r);
                 if (orig != null)
                 {
-                    result.AddRange(IterWorldSpaceCorner(orig.bounds, orig.rootBone, rootBone));
+                    result.AddRange(IterWorldSpaceCorner(orig.localBounds, orig.rootBone, rootBone));
                 }
                 else
                 {
-                    result.AddRange(IterWorldSpaceCorner(r.bounds));
+                    result.AddRange(IterWorldSpaceCorner(r.localBounds, r.rootBone));
                 }
             }
         }
@@ -252,7 +255,7 @@ namespace WF.Tool.Avatar.BU
             // bounds の頂点8箇所のワールド座標を追加
             if (r.bounds.extents != Vector3.zero)
             {
-                result.AddRange(IterWorldSpaceCorner(r.bounds));
+                result.AddRange(IterWorldSpaceCorner(r.localBounds, r.rootBone));
             }
         }
 
