@@ -2,7 +2,10 @@
     "name": "jp.whiteflare.avatartools.Editor",
     "rootNamespace": "",
     "references": [
-        "Unity.TextMeshPro"
+        "jp.whiteflare.avatartools",
+        "Unity.TextMeshPro",
+        "nadena.dev.ndmf",
+        "com.anatawa12.avatar-optimizer.api.editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -36,6 +39,16 @@
             "name": "com.unity.textmeshpro",
             "expression": "[2.0.0,4.0.0)",
             "define": "ENV_TEXTMESHPRO"
+        },
+        {
+            "name": "nadena.dev.ndmf",
+            "expression": "[1.4.0,2.0.0)",
+            "define": "ENV_NDMF"
+        },
+        {
+            "name": "com.anatawa12.avatar-optimizer",
+            "expression": "[1.7.0,2.0.0)",
+            "define": "ENV_AAO"
         }
     ],
     "noEngineReferences": false

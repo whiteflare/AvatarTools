@@ -46,6 +46,25 @@ namespace WF.Tool.Avatar.BU
             window.SetSelection(Selection.GetFiltered(typeof(GameObject), SelectionMode.Editable | SelectionMode.ExcludePrefab));
         }
 
+        public static void ShowWindow(GameObject rootObject, Transform anchorOverride, Transform rootBone)
+        {
+            var window = EditorWindow.GetWindow<BoundsUnificator>(Title);
+            if (rootObject != null)
+            {
+                window.rootObject = rootObject;
+                window.boundsRecalculator.SetAvatarRoot(rootObject);
+                window.repaintHandle = true;
+            }
+            if (anchorOverride != null)
+            {
+                window.boundsRecalculator.anchorTarget = anchorOverride;
+            }
+            if (rootBone != null)
+            {
+                window.boundsRecalculator.rootBone = rootBone;
+            }
+        }
+
         private void SetSelection(Object[] objects)
         {
             foreach (var obj in objects)
@@ -111,8 +130,8 @@ namespace WF.Tool.Avatar.BU
                 repaintHandle = true;
             }
 
-            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.skinMeshRenderers)), new GUIContent("SkinnedMeshRenderer (" + boundsRecalculator.skinMeshRenderers.Count + ")"), true);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.meshRenderers)), new GUIContent("MeshRenderer (" + boundsRecalculator.meshRenderers.Count + ")"), true);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.skinMeshRenderers)), new GUIContent("SkinnedMeshRenderer"), true);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.meshRenderers)), new GUIContent("MeshRenderer"), true);
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.rootBone)), new GUIContent("RootBone (Hip)", "RootBoneに設定するTransform"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.anchorTarget)), new GUIContent("AnchorOverride", "AnchorOverrideに設定するTransform"));
