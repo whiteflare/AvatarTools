@@ -17,7 +17,6 @@
 
 #if UNITY_EDITOR && ENV_NDMF
 
-using UnityEditor;
 using UnityEngine;
 using nadena.dev.ndmf;
 #if ENV_AAO
@@ -78,10 +77,6 @@ namespace WF.Tool.Avatar.BU
     [ComponentInformation(typeof(SetAnchorAndBounds))]
     internal class BoundsUnificatorNdmfPluginInformation : ComponentInformation<SetAnchorAndBounds>
     {
-        protected override void CollectMutations(SetAnchorAndBounds component, ComponentMutationsCollector collector)
-        {
-        }
-
         protected override void CollectDependency(SetAnchorAndBounds component, ComponentDependencyCollector collector)
         {
             collector.MarkEntrypoint();
