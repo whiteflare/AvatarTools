@@ -238,7 +238,7 @@ namespace WF.Tool.Avatar.AvTexTool
 
         private string GetPerformanceRank(long bytes)
         {
-            if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
+            if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android || EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS)
             {
                 if (bytes < 10 * 1024 * 1024)
                 {
@@ -974,6 +974,8 @@ namespace WF.Tool.Avatar.AvTexTool
             {
                 if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
                     return "Android";
+                if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS)
+                    return "iPhone";
                 return "Standalone";
             }
 
@@ -1322,7 +1324,7 @@ namespace WF.Tool.Avatar.AvTexTool
                     case RenderTextureFormat.DefaultHDR:
                         return 64; // ARGBHalf
                     case RenderTextureFormat.Depth:
-                        if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android)
+                        if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android || EditorUserBuildSettings.activeBuildTarget == BuildTarget.iOS)
                             return 24; // OpenGL
                         return 32; // D3D9
 
