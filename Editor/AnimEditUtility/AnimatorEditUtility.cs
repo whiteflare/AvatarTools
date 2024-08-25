@@ -900,7 +900,7 @@ namespace WF.Tool.Avatar.AnimEdit
                     foreach (var srcTrn in src.anyStateTransitions)
                     {
                         var destinationState = GetReference(srcStates, dstStates, srcTrn.destinationState);
-                        var destinationStateMachine = GetReference(srcMachines, srcMachines, srcTrn.destinationStateMachine);
+                        var destinationStateMachine = GetReference(srcMachines, dstMachines, srcTrn.destinationStateMachine);
 
                         var dstTrn = destinationState != null ? dst.AddAnyStateTransition(destinationState) :
                             destinationStateMachine != null ? dst.AddAnyStateTransition(destinationStateMachine) : new AnimatorStateTransition();
@@ -912,7 +912,7 @@ namespace WF.Tool.Avatar.AnimEdit
                     foreach (var srcTrn in src.entryTransitions)
                     {
                         var destinationState = GetReference(srcStates, dstStates, srcTrn.destinationState);
-                        var destinationStateMachine = GetReference(srcMachines, srcMachines, srcTrn.destinationStateMachine);
+                        var destinationStateMachine = GetReference(srcMachines, dstMachines, srcTrn.destinationStateMachine);
 
                         var dstTrn = destinationState != null ? dst.AddEntryTransition(destinationState) :
                             destinationStateMachine != null ? dst.AddEntryTransition(destinationStateMachine) : new AnimatorTransition();
