@@ -101,10 +101,10 @@ namespace WF.Tool.Avatar
             new HighlightMode("Constraint",
                 result => result.AddRange(FindObjectInScene<Component>(cmp => cmp is IConstraint))),
 
+#if ENV_VRCSDK3_AVATAR
             // 区切り線
             HighlightMode.Dummy,
 
-#if ENV_VRCSDK3_AVATAR
             // Constraint
             new HighlightMode("VRC/PhysBone",
                 result => result.AddRange(FindObjectInScene("VRC.SDK3.Dynamics.PhysBone.Components.VRCPhysBone"))),
