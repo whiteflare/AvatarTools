@@ -24,6 +24,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.SceneManagement;
+using System.Text.RegularExpressions;
 
 #if UNITY_2021_2_OR_NEWER
 using UnityEditor.SceneManagement;
@@ -59,49 +60,63 @@ namespace WF.Tool.Avatar
             HighlightMode.Dummy,
 
             // Static関連
-            new HighlightMode("Batching Static",
+            new HighlightMode("Static/Batching Static",
                 go => GameObjectUtility.AreStaticEditorFlagsSet(go, StaticEditorFlags.BatchingStatic)),
-            new HighlightMode("Lightmap Static",
+            new HighlightMode("Static/Lightmap Static",
                 go => GameObjectUtility.AreStaticEditorFlagsSet(go, StaticEditorFlags.ContributeGI)),
-            new HighlightMode("Reflection Static",
+            new HighlightMode("Static/Reflection Static",
                 go => GameObjectUtility.AreStaticEditorFlagsSet(go, StaticEditorFlags.ReflectionProbeStatic)),
-            new HighlightMode("Occluder Static",
+            new HighlightMode("Static/Occluder Static",
                 go => GameObjectUtility.AreStaticEditorFlagsSet(go, StaticEditorFlags.OccluderStatic)),
-            new HighlightMode("Occludee Static",
+            new HighlightMode("Static/Occludee Static",
                 go => GameObjectUtility.AreStaticEditorFlagsSet(go, StaticEditorFlags.OccludeeStatic)),
 
-            // 区切り線
-            HighlightMode.Dummy,
-
             // Renderer関連
-            new HighlightMode("SkinnedMeshRenderer",
+            new HighlightMode("Renderer/SkinnedMesh Renderer",
                 result => result.AddRange(FindObjectInScene<SkinnedMeshRenderer>())),
-            new HighlightMode("SkinnedMeshRenderer Bones",
+            new HighlightMode("Renderer/SkinnedMesh Renderer Bones",
                 result => result.AddRange(FindObjectInScene<SkinnedMeshRenderer, Transform>(smr => smr.bones))),
-            new HighlightMode("MeshRenderer",
+            new HighlightMode("Renderer/Mesh Renderer",
                 result => result.AddRange(FindObjectInScene<MeshRenderer>())),
-
-            // 区切り線
-            HighlightMode.Dummy,
+            new HighlightMode("Renderer/ParticleSystem",
+                result => result.AddRange(FindObjectInScene<ParticleSystem>())),
+            new HighlightMode("Renderer/Trail Renderer",
+                result => result.AddRange(FindObjectInScene<TrailRenderer>())),
+            new HighlightMode("Renderer/Line Renderer",
+                result => result.AddRange(FindObjectInScene<LineRenderer>())),
 
             // ライト関連
-            new HighlightMode("Realtime Light",
+            new HighlightMode("Light/Realtime Light",
                 result => result.AddRange(FindObjectInScene<Light>(cmp => cmp.lightmapBakeType == LightmapBakeType.Realtime))),
-            new HighlightMode("Mixed Light",
+            new HighlightMode("Light/Mixed Light",
                 result => result.AddRange(FindObjectInScene<Light>(cmp => cmp.lightmapBakeType == LightmapBakeType.Mixed))),
-            new HighlightMode("Baked Light",
+            new HighlightMode("Light/Baked Light",
                 result => result.AddRange(FindObjectInScene<Light>(cmp => cmp.lightmapBakeType == LightmapBakeType.Baked))),
-            new HighlightMode("LightProbeGroup",
+            new HighlightMode("Light/LightProbeGroup",
                 result => result.AddRange(FindObjectInScene<LightProbeGroup>())),
-            new HighlightMode("ReflectionProbe",
+            new HighlightMode("Light/ReflectionProbe",
                 result => result.AddRange(FindObjectInScene<ReflectionProbe>())),
-
-            // 区切り線
-            HighlightMode.Dummy,
 
             // Constraint
             new HighlightMode("Constraint",
                 result => result.AddRange(FindObjectInScene<Component>(cmp => cmp is IConstraint))),
+
+            // 区切り線
+            HighlightMode.Dummy,
+
+#if ENV_VRCSDK3_AVATAR
+            // Constraint
+            new HighlightMode("VRC/PhysBone",
+                result => result.AddRange(FindObjectInScene("VRC.SDK3.Dynamics.PhysBone.Components.VRCPhysBone"))),
+            new HighlightMode("VRC/PhysBone Collider",
+                result => result.AddRange(FindObjectInScene("VRC.SDK3.Dynamics.PhysBone.Components.VRCPhysBoneCollider"))),
+            new HighlightMode("VRC/Contact Receiver",
+                result => result.AddRange(FindObjectInScene("VRC.SDK3.Dynamics.Contact.Components.VRCContactReceiver"))),
+            new HighlightMode("VRC/Contact Sender",
+                result => result.AddRange(FindObjectInScene("VRC.SDK3.Dynamics.Contact.Components.VRCContactSender"))),
+            new HighlightMode("VRC/Constraint",
+                result => result.AddRange(FindObjectInScene(new Regex(@"VRC\.SDK3\.Dynamics\.Constraint\.Components\..*Constraint", RegexOptions.Compiled)))),
+#endif
         };
 
         HighlightMode CurrentMode
@@ -290,6 +305,32 @@ namespace WF.Tool.Avatar
             return GetAllRootGameObjects().SelectMany(go => go.GetComponentsInChildren<T>(true))
                 .SelectMany(split)
                 .Where(cmp => cmp != null)
+                .Distinct()
+                .Select(cmp => cmp.gameObject);
+        }
+
+        public static IEnumerable<GameObject> FindObjectInScene(string fullName, Func<Component, bool> pred = null)
+        {
+            if (pred == null)
+            {
+                pred = _ => true;
+            }
+            return GetAllRootGameObjects().SelectMany(go => go.GetComponentsInChildren<Component>(true))
+                .Where(cmp => cmp != null && cmp.GetType().FullName == fullName)
+                .Where(pred)
+                .Distinct()
+                .Select(cmp => cmp.gameObject);
+        }
+
+        public static IEnumerable<GameObject> FindObjectInScene(Regex fullName, Func<Component, bool> pred = null)
+        {
+            if (pred == null)
+            {
+                pred = _ => true;
+            }
+            return GetAllRootGameObjects().SelectMany(go => go.GetComponentsInChildren<Component>(true))
+                .Where(cmp => cmp != null && fullName.IsMatch(cmp.GetType().FullName))
+                .Where(pred)
                 .Distinct()
                 .Select(cmp => cmp.gameObject);
         }
