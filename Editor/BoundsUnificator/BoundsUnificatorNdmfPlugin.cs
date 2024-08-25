@@ -35,12 +35,17 @@ namespace WF.Tool.Avatar.BU
 
         protected override void Configure()
         {
+#if ENV_AAO
+            InPhase(BuildPhase.Optimizing)
+                .BeforePlugin("com.anatawa12.avatar-optimizer")
+                .Run("PreExecute", ctx => Execute(ctx, BoundsCalcMode.CurrentValueOnly, false));
+#endif
             InPhase(BuildPhase.Optimizing)
                 .AfterPlugin("com.anatawa12.avatar-optimizer")
-                .Run("[BU] Set Anchor And Bounds", Execute);
+                .Run("Execute", ctx => Execute(ctx, BoundsCalcMode.SkinnedVertex, true));
         }
 
-        private void Execute(BuildContext ctx)
+        private void Execute(BuildContext ctx, BoundsCalcMode calcMode, bool destroy)
         {
             var avatarRoot = ctx.AvatarRootObject;
             var component = avatarRoot?.GetComponent<SetAnchorAndBounds>();
@@ -53,10 +58,13 @@ namespace WF.Tool.Avatar.BU
                 var calculator = ScriptableObject.CreateInstance<BoundsRecalculator>();
                 calculator.SetAvatarRoot(avatarRoot);
                 SetCustomSettings(component, calculator);
-                calculator.CalcBounds();
+                calculator.CalcBounds(calcMode);
                 calculator.ApplyBoundsWithoutUndo();
             }
-            Object.DestroyImmediate(component);
+            if (destroy)
+            {
+                Object.DestroyImmediate(component);
+            }
         }
 
         private static void SetCustomSettings(SetAnchorAndBounds component, BoundsRecalculator calculator)
