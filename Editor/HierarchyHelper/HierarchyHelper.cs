@@ -117,6 +117,13 @@ namespace WF.Tool.Avatar
             new HighlightMode("VRC/Constraint",
                 result => result.AddRange(FindObjectInScene(new Regex(@"VRC\.SDK3\.Dynamics\.Constraint\.Components\..*Constraint", RegexOptions.Compiled)))),
 #endif
+
+            // 区切り線
+            HighlightMode.Dummy,
+
+            // Missing Script
+            new HighlightMode("Missing Script",
+                go => go.GetComponents<Component>().Any(cmp => cmp == null)), // nullならばMissingScript
         };
 
         HighlightMode CurrentMode
