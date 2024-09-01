@@ -131,7 +131,7 @@ namespace WF.Tool.Avatar.BU
             }
 
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.skinMeshRenderers)), new GUIContent("SkinnedMeshRenderer"), true);
-            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.meshRenderers)), new GUIContent("MeshRenderer"), true);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.otherRenderers)), new GUIContent("Other Renderer"), true);
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.rootBone)), new GUIContent("RootBone (Hip)", "RootBoneに設定するTransform"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(boundsRecalculator.anchorTarget)), new GUIContent("AnchorOverride", "AnchorOverrideに設定するTransform"));

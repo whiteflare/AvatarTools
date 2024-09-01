@@ -29,7 +29,7 @@ namespace WF.Tool.Avatar.BU
     {
         public Bounds bounds;
         public List<SkinnedMeshRenderer> skinMeshRenderers;
-        public List<MeshRenderer> meshRenderers;
+        public List<Renderer> otherRenderers;
         public Transform rootBone;
         public Transform anchorTarget;
 
@@ -42,7 +42,7 @@ namespace WF.Tool.Avatar.BU
         {
             bounds = new Bounds(Vector3.zero, Vector3.one * 2);
             skinMeshRenderers = new List<SkinnedMeshRenderer>();
-            meshRenderers = new List<MeshRenderer>();
+            otherRenderers = new List<Renderer>();
             rootBone = null;
             anchorTarget = null;
         }
@@ -89,8 +89,8 @@ namespace WF.Tool.Avatar.BU
                 anchorTarget = rootObject.transform;
             }
 
-            skinMeshRenderers.AddRange(rootObject.GetComponentsInChildren<SkinnedMeshRenderer>(true));
-            meshRenderers.AddRange(rootObject.GetComponentsInChildren<MeshRenderer>(true));
+            skinMeshRenderers.AddRange(rootObject.GetComponentsInChildren<SkinnedMeshRenderer>(true).Where(r => r != null));
+            otherRenderers.AddRange(rootObject.GetComponentsInChildren<Renderer>(true).Where(r => r != null && !skinMeshRenderers.Contains(r)));
         }
 
         public void CalcBounds(BoundsCalcMode calcMode = BoundsCalcMode.SkinnedVertex)
@@ -156,7 +156,7 @@ namespace WF.Tool.Avatar.BU
 
         public void ApplyBounds()
         {
-            Undo.RecordObjects(skinMeshRenderers.Union<Component>(meshRenderers).Where(cmp => cmp != null).ToArray(), "set bounds");
+            Undo.RecordObjects(skinMeshRenderers.Union<Component>(otherRenderers).Where(cmp => cmp != null).ToArray(), "set bounds");
             ApplyBoundsWithoutUndo();
         }
 
@@ -186,7 +186,7 @@ namespace WF.Tool.Avatar.BU
                 r.localBounds = bounds;
             }
 
-            foreach (var r in meshRenderers)
+            foreach (var r in otherRenderers)
             {
                 if (r == null)
                 {
