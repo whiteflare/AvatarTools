@@ -29,6 +29,9 @@ using VRC.Dynamics;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Dynamics.PhysBone.Components;
 using VRC.SDK3.Dynamics.Contact.Components;
+#if ENV_VRCSDK3_AVATAR_CST
+using VRC.SDK3.Dynamics.Constraint.Components;
+#endif
 
 namespace WF.Tool.Avatar
 {
@@ -45,13 +48,8 @@ namespace WF.Tool.Avatar
         public List<GameObject> oldBones = new List<GameObject>();
         public List<GameObject> newBones = new List<GameObject>();
 
-        public List<GameObject> tgtAvatarDesc = new List<GameObject>();
         public List<GameObject> tgtSkinnedMeshR = new List<GameObject>();
         public List<GameObject> tgtMeshR = new List<GameObject>();
-        public List<GameObject> tgtPhysBone = new List<GameObject>();
-        public List<GameObject> tgtPhysBoneCollider = new List<GameObject>();
-        public List<GameObject> tgtContactSender = new List<GameObject>();
-        public List<GameObject> tgtContactReceiver = new List<GameObject>();
         public List<GameObject> tgtPositionC = new List<GameObject>();
         public List<GameObject> tgtRotationC = new List<GameObject>();
         public List<GameObject> tgtScaleC = new List<GameObject>();
@@ -59,6 +57,21 @@ namespace WF.Tool.Avatar
         public List<GameObject> tgtLookAtC = new List<GameObject>();
         public List<GameObject> tgtAimC = new List<GameObject>();
         public List<GameObject> tgtParticleSystem = new List<GameObject>();
+
+        public List<GameObject> tgtAvatarDesc = new List<GameObject>();
+        public List<GameObject> tgtPhysBone = new List<GameObject>();
+        public List<GameObject> tgtPhysBoneCollider = new List<GameObject>();
+        public List<GameObject> tgtContactSender = new List<GameObject>();
+        public List<GameObject> tgtContactReceiver = new List<GameObject>();
+
+#if ENV_VRCSDK3_AVATAR_CST
+        public List<GameObject> tgtVRCPositionC = new List<GameObject>();
+        public List<GameObject> tgtVRCRotationC = new List<GameObject>();
+        public List<GameObject> tgtVRCScaleC = new List<GameObject>();
+        public List<GameObject> tgtVRCParentC = new List<GameObject>();
+        public List<GameObject> tgtVRCLookAtC = new List<GameObject>();
+        public List<GameObject> tgtVRCAimC = new List<GameObject>();
+#endif
 
         private readonly Type[] COPY_TARGET_TYPE = {
             typeof(VRCAvatarDescriptor),
@@ -75,6 +88,14 @@ namespace WF.Tool.Avatar
             typeof(LookAtConstraint),
             typeof(AimConstraint),
             typeof(ParticleSystem),
+#if ENV_VRCSDK3_AVATAR_CST
+            typeof(VRCPositionConstraint),
+            typeof(VRCRotationConstraint),
+            typeof(VRCScaleConstraint),
+            typeof(VRCParentConstraint),
+            typeof(VRCLookAtConstraint),
+            typeof(VRCAimConstraint),
+#endif
         };
 
         private readonly List<string> COPY_FIELD_NAME = new List<string>()
@@ -93,6 +114,14 @@ namespace WF.Tool.Avatar
             nameof(tgtLookAtC),
             nameof(tgtAimC),
             nameof(tgtParticleSystem),
+#if ENV_VRCSDK3_AVATAR_CST
+            nameof(tgtVRCPositionC),
+            nameof(tgtVRCRotationC),
+            nameof(tgtVRCScaleC),
+            nameof(tgtVRCParentC),
+            nameof(tgtVRCLookAtC),
+            nameof(tgtVRCAimC),
+#endif
         };
 
         private readonly List<List<GameObject>> targetComponents = new List<List<GameObject>>();
@@ -652,6 +681,20 @@ namespace WF.Tool.Avatar
                 prepareSrcGos.AddRange(remapGo.Where(ent => ent.Value == null && IsCopyTargetGameObject(ent.Key)).Select(ent => ent.Key));
                 prepareSrcGos.AddRange(GetAllSkinnedMeshBones(GetCopyTargetComponents<SkinnedMeshRenderer>()).Select(t => t.gameObject));
                 prepareSrcGos.AddRange(GetPhysBoneAffectedTransforms(GetCopyTargetComponents<VRCPhysBone>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetConstraintAffectedTransform(GetCopyTargetComponents<PositionConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetConstraintAffectedTransform(GetCopyTargetComponents<RotationConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetConstraintAffectedTransform(GetCopyTargetComponents<ScaleConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetConstraintAffectedTransform(GetCopyTargetComponents<ParentConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetConstraintAffectedTransform(GetCopyTargetComponents<LookAtConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetConstraintAffectedTransform(GetCopyTargetComponents<AimConstraint>()).Select(t => t.gameObject));
+#if ENV_VRCSDK3_AVATAR_CST
+                prepareSrcGos.AddRange(GetVRCConstraintAffectedTransform(GetCopyTargetComponents<VRCPositionConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetVRCConstraintAffectedTransform(GetCopyTargetComponents<VRCRotationConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetVRCConstraintAffectedTransform(GetCopyTargetComponents<VRCScaleConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetVRCConstraintAffectedTransform(GetCopyTargetComponents<VRCParentConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetVRCConstraintAffectedTransform(GetCopyTargetComponents<VRCLookAtConstraint>()).Select(t => t.gameObject));
+                prepareSrcGos.AddRange(GetVRCConstraintAffectedTransform(GetCopyTargetComponents<VRCAimConstraint>()).Select(t => t.gameObject));
+#endif
                 foreach (var src in prepareSrcGos.Distinct())
                 {
                     PrepareGameObject(remapGo, src, true);
@@ -908,101 +951,132 @@ namespace WF.Tool.Avatar
         private bool UpdateReference(Dictionary<GameObject, GameObject> goRemap, Component cmp)
         {
             // PhysBone
-            if (cmp is VRCPhysBone pbDst)
+            if (cmp is VRCPhysBone)
             {
-                UpdateReference(goRemap, pbDst.rootTransform, t => pbDst.rootTransform = t);
-                UpdateReference(goRemap, pbDst.ignoreTransforms);
-                UpdateReference<VRCPhysBoneColliderBase>(goRemap, pbDst.colliders);
+                var dst = (VRCPhysBone)cmp;
+                UpdateReference(goRemap, dst.rootTransform, t => dst.rootTransform = t);
+                UpdateReference(goRemap, dst.ignoreTransforms);
+                UpdateReference<VRCPhysBoneColliderBase>(goRemap, dst.colliders);
             }
-            if (cmp is VRCPhysBoneCollider pcDst)
+            if (cmp is VRCPhysBoneCollider)
             {
-                UpdateReference(goRemap, pcDst.rootTransform, t => pcDst.rootTransform = t);
+                var dst = (VRCPhysBoneCollider)cmp;
+                UpdateReference(goRemap, dst.rootTransform, t => dst.rootTransform = t);
             }
 
             // Contact
-            if (cmp is VRCContactSender cnsDst)
+            if (cmp is VRCContactSender)
             {
-                UpdateReference(goRemap, cnsDst.rootTransform, t => cnsDst.rootTransform = t);
+                var dst = (VRCContactSender)cmp;
+                UpdateReference(goRemap, dst.rootTransform, t => dst.rootTransform = t);
             }
-            if (cmp is VRCContactReceiver cnrDst)
+            if (cmp is VRCContactReceiver)
             {
-                UpdateReference(goRemap, cnrDst.rootTransform, t => cnrDst.rootTransform = t);
+                var dst = (VRCContactReceiver)cmp;
+                UpdateReference(goRemap, dst.rootTransform, t => dst.rootTransform = t);
             }
 
             // Constraint
-            if (cmp is IConstraint csDst)
+            if (cmp is IConstraint)
             {
-                UpdateReference(goRemap, csDst);
+                var dst = (IConstraint)cmp;
+                UpdateReference(goRemap, dst);
             }
-            if (cmp is LookAtConstraint lkaDst)
+            if (cmp is LookAtConstraint)
             {
-                UpdateReference(goRemap, lkaDst.worldUpObject, t => lkaDst.worldUpObject = t);
+                var dst = (LookAtConstraint)cmp;
+                UpdateReference(goRemap, dst.worldUpObject, t => dst.worldUpObject = t);
             }
-            if (cmp is AimConstraint aimDst)
+            if (cmp is AimConstraint)
             {
-                UpdateReference(goRemap, aimDst.worldUpObject, t => aimDst.worldUpObject = t);
+                var dst = (AimConstraint)cmp;
+                UpdateReference(goRemap, dst.worldUpObject, t => dst.worldUpObject = t);
             }
 
             // Renderer
-            if (cmp is SkinnedMeshRenderer smr)
+            if (cmp is SkinnedMeshRenderer)
             {
-                UpdateReference(goRemap, smr.probeAnchor, t => smr.probeAnchor = t);
-                UpdateReference(goRemap, smr.rootBone, t => smr.rootBone = t);
-                UpdateReference(goRemap, smr.bones, ts => smr.bones = ts);  // bones には Transform[] の再設定が必要
+                var dst = (SkinnedMeshRenderer)cmp;
+                UpdateReference(goRemap, dst.probeAnchor, t => dst.probeAnchor = t);
+                UpdateReference(goRemap, dst.rootBone, t => dst.rootBone = t);
+                UpdateReference(goRemap, dst.bones, ts => dst.bones = ts);  // bones には Transform[] の再設定が必要
             }
-            if (cmp is MeshRenderer mr)
+            if (cmp is MeshRenderer)
             {
-                UpdateReference(goRemap, mr.probeAnchor, t => mr.probeAnchor = t);
+                var dst = (MeshRenderer)cmp;
+                UpdateReference(goRemap, dst.probeAnchor, t => dst.probeAnchor = t);
             }
 
             // VRCAvatarDescriptor
-            if (cmp is VRCAvatarDescriptor avd)
+            if (cmp is VRCAvatarDescriptor)
             {
-                UpdateReference(goRemap, avd.VisemeSkinnedMesh, t => avd.VisemeSkinnedMesh = t);
-                UpdateReference(goRemap, avd.lipSyncJawBone, t => avd.lipSyncJawBone = t);
-                if (avd.enableEyeLook)
+                var dst = (VRCAvatarDescriptor)cmp;
+                UpdateReference(goRemap, dst.VisemeSkinnedMesh, t => dst.VisemeSkinnedMesh = t);
+                UpdateReference(goRemap, dst.lipSyncJawBone, t => dst.lipSyncJawBone = t);
+                if (dst.enableEyeLook)
                 {
-                    var eyeLook = avd.customEyeLookSettings;
+                    var eyeLook = dst.customEyeLookSettings;
                     UpdateReference(goRemap, eyeLook.leftEye, t => eyeLook.leftEye = t);
                     UpdateReference(goRemap, eyeLook.rightEye, t => eyeLook.rightEye = t);
                     UpdateReference(goRemap, eyeLook.eyelidsSkinnedMesh, t => eyeLook.eyelidsSkinnedMesh = t);
-                    avd.customEyeLookSettings = eyeLook;
+                    dst.customEyeLookSettings = eyeLook;
                 }
-                UpdateReference(goRemap, avd.collider_fingerIndexL.transform, t => avd.collider_fingerIndexL.transform = t);
-                UpdateReference(goRemap, avd.collider_fingerIndexR.transform, t => avd.collider_fingerIndexR.transform = t);
-                UpdateReference(goRemap, avd.collider_fingerLittleL.transform, t => avd.collider_fingerLittleL.transform = t);
-                UpdateReference(goRemap, avd.collider_fingerLittleR.transform, t => avd.collider_fingerLittleR.transform = t);
-                UpdateReference(goRemap, avd.collider_fingerMiddleL.transform, t => avd.collider_fingerMiddleL.transform = t);
-                UpdateReference(goRemap, avd.collider_fingerMiddleR.transform, t => avd.collider_fingerMiddleR.transform = t);
-                UpdateReference(goRemap, avd.collider_fingerRingL.transform, t => avd.collider_fingerRingL.transform = t);
-                UpdateReference(goRemap, avd.collider_fingerRingR.transform, t => avd.collider_fingerRingR.transform = t);
-                UpdateReference(goRemap, avd.collider_footL.transform, t => avd.collider_footL.transform = t);
-                UpdateReference(goRemap, avd.collider_footR.transform, t => avd.collider_footR.transform = t);
-                UpdateReference(goRemap, avd.collider_handL.transform, t => avd.collider_handL.transform = t);
-                UpdateReference(goRemap, avd.collider_handR.transform, t => avd.collider_handR.transform = t);
-                UpdateReference(goRemap, avd.collider_torso.transform, t => avd.collider_torso.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerIndexL.transform, t => dst.collider_fingerIndexL.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerIndexR.transform, t => dst.collider_fingerIndexR.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerLittleL.transform, t => dst.collider_fingerLittleL.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerLittleR.transform, t => dst.collider_fingerLittleR.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerMiddleL.transform, t => dst.collider_fingerMiddleL.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerMiddleR.transform, t => dst.collider_fingerMiddleR.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerRingL.transform, t => dst.collider_fingerRingL.transform = t);
+                UpdateReference(goRemap, dst.collider_fingerRingR.transform, t => dst.collider_fingerRingR.transform = t);
+                UpdateReference(goRemap, dst.collider_footL.transform, t => dst.collider_footL.transform = t);
+                UpdateReference(goRemap, dst.collider_footR.transform, t => dst.collider_footR.transform = t);
+                UpdateReference(goRemap, dst.collider_handL.transform, t => dst.collider_handL.transform = t);
+                UpdateReference(goRemap, dst.collider_handR.transform, t => dst.collider_handR.transform = t);
+                UpdateReference(goRemap, dst.collider_torso.transform, t => dst.collider_torso.transform = t);
             }
 
             // ParticleSystem
-            if (cmp is ParticleSystem ps)
+            if (cmp is ParticleSystem)
             {
+                var dst = (ParticleSystem)cmp;
 #if UNITY_2020_2_OR_NEWER
-                var trigger = ps.trigger;
+                var trigger = dst.trigger;
                 for (int i = 0; i < trigger.colliderCount; i++)
                 {
                     UpdateReference(goRemap, trigger.GetCollider(i), c => trigger.SetCollider(i, c));
                 }
 #endif
 
-                var subEmitters = ps.subEmitters;
+                var subEmitters = dst.subEmitters;
                 for (int i = 0; i < subEmitters.subEmittersCount; i++)
                 {
                     UpdateReference(goRemap, subEmitters.GetSubEmitterSystem(i), c => subEmitters.SetSubEmitterSystem(i, c));
                 }
 
-                var lights = ps.lights;
+                var lights = dst.lights;
                 UpdateReference(goRemap, lights.light, c => lights.light = c);
             }
+
+            // VRC Constraint系
+#if ENV_VRCSDK3_AVATAR_CST
+            if (cmp is VRCConstraintBase)
+            {
+                var dst = (VRCConstraintBase)cmp;
+                UpdateReference(goRemap, dst.TargetTransform, t => dst.TargetTransform = t);
+                UpdateReference(goRemap, dst);
+            }
+            if (cmp is VRCLookAtConstraint)
+            {
+                var dst = (VRCLookAtConstraint)cmp;
+                UpdateReference(goRemap, dst.WorldUpTransform, t => dst.WorldUpTransform = t);
+            }
+            if (cmp is VRCAimConstraint)
+            {
+                var dst = (VRCAimConstraint)cmp;
+                UpdateReference(goRemap, dst.WorldUpTransform, t => dst.WorldUpTransform = t);
+            }
+#endif
 
             return false;
         }
@@ -1039,6 +1113,35 @@ namespace WF.Tool.Avatar
             }
             return modified;
         }
+
+#if ENV_VRCSDK3_AVATAR_CST
+        private bool UpdateReference(Dictionary<GameObject, GameObject> map, VRCConstraintBase cs)
+        {
+            return UpdateReference(map, cs.Sources, list => cs.Sources = list);
+        }
+
+        private bool UpdateReference(Dictionary<GameObject, GameObject> map, VRCConstraintSourceKeyableList list, Action<VRCConstraintSourceKeyableList> setter)
+        {
+            bool modified = false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var cs = list[i];
+                if (cs.SourceTransform != null)
+                {
+                    modified |= UpdateReference(map, list[i].SourceTransform, t =>
+                    {
+                        cs.SourceTransform = t;
+                        list[i] = cs;
+                    });
+                }
+            }
+            if (modified)
+            {
+                setter(list);
+            }
+            return modified;
+        }
+#endif
 
         private bool UpdateReference<T>(Dictionary<GameObject, GameObject> map, List<T> list) where T : Component
         {
@@ -1243,6 +1346,57 @@ namespace WF.Tool.Avatar
             return go.transform;
         }
 
+        private List<Transform> GetConstraintAffectedTransform<T>(List<T> list) where T : IConstraint
+        {
+            var result = new List<Transform>();
+            foreach (var c in list)
+            {
+                var cslist = new List<ConstraintSource>();
+                c.GetSources(cslist);
+                foreach (var cs in cslist)
+                {
+                    result.Add(cs.sourceTransform);
+                }
+                if (c is LookAtConstraint)
+                {
+                    var c2 = (LookAtConstraint)(object)c;
+                    result.Add(c2.worldUpObject);
+                }
+                if (c is AimConstraint)
+                {
+                    var c2 = (AimConstraint)(object)c;
+                    result.Add(c2.worldUpObject);
+                }
+            }
+            return result.Where(t => t != null).Distinct().ToList();
+        }
+
+#if ENV_VRCSDK3_AVATAR_CST
+        private List<Transform> GetVRCConstraintAffectedTransform<T>(List<T> list) where T : VRCConstraintBase
+        {
+            var result = new List<Transform>();
+            foreach (var c in list)
+            {
+                result.Add(c.TargetTransform);
+                foreach (var cs in c.Sources)
+                {
+                    result.Add(cs.SourceTransform);
+                }
+                if (c is VRCLookAtConstraint)
+                {
+                    var c2 = (VRCLookAtConstraint)(object)c;
+                    result.Add(c2.WorldUpTransform);
+                }
+                if (c is VRCAimConstraint)
+                {
+                    var c2 = (VRCAimConstraint)(object)c;
+                    result.Add(c2.WorldUpTransform);
+                }
+            }
+            return result.Where(t => t != null).Distinct().ToList();
+        }
+        #endif
+
         #endregion
 
         #region 参照チェックと警告ログ
@@ -1250,103 +1404,135 @@ namespace WF.Tool.Avatar
         private void CheckReference(Transform[] dstAllTransforms, Component cmp)
         {
             // Renderer
-            if (cmp is Renderer r)
+            if (cmp is Renderer)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, r.probeAnchor, "probeAnchor");
+                var dst = (Renderer)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.probeAnchor, "probeAnchor");
             }
-            if (cmp is SkinnedMeshRenderer smr)
+            if (cmp is SkinnedMeshRenderer)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, smr.rootBone, "rootBone");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, smr.bones, "bones");
+                var dst = (SkinnedMeshRenderer)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.rootBone, "rootBone");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.bones, "bones");
             }
 
             // ParticleSystem
-            if (cmp is ParticleSystem ps)
+            if (cmp is ParticleSystem)
             {
+                var dst = (ParticleSystem)cmp;
 #if UNITY_2020_2_OR_NEWER
-                var trigger = ps.trigger;
+                var trigger = dst.trigger;
                 for (int i = 0; i < trigger.colliderCount; i++)
                 {
                     CheckReferenceAndWarn(dstAllTransforms, cmp, trigger.GetCollider(i), "trigger");
                 }
 #endif
 
-                var subEmitters = ps.subEmitters;
+                var subEmitters = dst.subEmitters;
                 for (int i = 0; i < subEmitters.subEmittersCount; i++)
                 {
                     CheckReferenceAndWarn(dstAllTransforms, cmp, subEmitters.GetSubEmitterSystem(i), "subEmitters");
                 }
 
-                var lights = ps.lights;
+                var lights = dst.lights;
                 CheckReferenceAndWarn(dstAllTransforms, cmp, lights.light, "lights");
             }
 
             // Constraint
-            if (cmp is IConstraint csDst)
+            if (cmp is IConstraint)
             {
+                var dst = (IConstraint)cmp;
                 var list = new List<ConstraintSource>();
-                csDst.GetSources(list);
+                dst.GetSources(list);
                 CheckReferenceAndWarn(dstAllTransforms, cmp, list.Select(t => t.sourceTransform), "ConstraintSource");
             }
-            if (cmp is LookAtConstraint lkaDst)
+            if (cmp is LookAtConstraint)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, lkaDst.worldUpObject, "worldUpObject");
+                var dst = (LookAtConstraint)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.worldUpObject, "worldUpObject");
             }
-            if (cmp is AimConstraint aimDst)
+            if (cmp is AimConstraint)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, aimDst.worldUpObject, "worldUpObject");
+                var dst = (AimConstraint)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.worldUpObject, "worldUpObject");
             }
 
             // VRCAvatarDescriptor
-            if (cmp is VRCAvatarDescriptor avd)
+            if (cmp is VRCAvatarDescriptor)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.VisemeSkinnedMesh, "VisemeSkinnedMesh");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.lipSyncJawBone, "lipSyncJawBone");
+                var dst = (VRCAvatarDescriptor)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.VisemeSkinnedMesh, "VisemeSkinnedMesh");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.lipSyncJawBone, "lipSyncJawBone");
 
-                if (avd.enableEyeLook)
+                if (dst.enableEyeLook)
                 {
-                    var eyeLook = avd.customEyeLookSettings;
+                    var eyeLook = dst.customEyeLookSettings;
                     CheckReferenceAndWarn(dstAllTransforms, cmp, eyeLook.leftEye, "leftEye");
                     CheckReferenceAndWarn(dstAllTransforms, cmp, eyeLook.rightEye, "rightEye");
                     CheckReferenceAndWarn(dstAllTransforms, cmp, eyeLook.eyelidsSkinnedMesh, "eyelidsSkinnedMesh");
                 }
 
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerIndexL.transform, "collider_fingerIndexL");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerIndexR.transform, "collider_fingerIndexR");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerLittleL.transform, "collider_fingerLittleL");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerLittleR.transform, "collider_fingerLittleR");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerMiddleL.transform, "collider_fingerMiddleL");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerMiddleR.transform, "collider_fingerMiddleR");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerRingL.transform, "collider_fingerRingL");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_fingerRingR.transform, "collider_fingerRingR");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_footL.transform, "collider_footL");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_footR.transform, "collider_footR");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_handL.transform, "collider_handL");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_handR.transform, "collider_handR");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, avd.collider_torso.transform, "collider_torso");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerIndexL.transform, "collider_fingerIndexL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerIndexR.transform, "collider_fingerIndexR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerLittleL.transform, "collider_fingerLittleL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerLittleR.transform, "collider_fingerLittleR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerMiddleL.transform, "collider_fingerMiddleL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerMiddleR.transform, "collider_fingerMiddleR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerRingL.transform, "collider_fingerRingL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_fingerRingR.transform, "collider_fingerRingR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_footL.transform, "collider_footL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_footR.transform, "collider_footR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_handL.transform, "collider_handL");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_handR.transform, "collider_handR");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.collider_torso.transform, "collider_torso");
             }
 
             // PhysBone
-            if (cmp is VRCPhysBone pbDst)
+            if (cmp is VRCPhysBone)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, pbDst.rootTransform, "rootTransform");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, pbDst.ignoreTransforms, "ignoreTransforms");
-                CheckReferenceAndWarn(dstAllTransforms, cmp, pbDst.colliders, "colliders");
+                var dst = (VRCPhysBone)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.rootTransform, "rootTransform");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.ignoreTransforms, "ignoreTransforms");
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.colliders, "colliders");
             }
-            if (cmp is VRCPhysBoneCollider pcDst)
+            if (cmp is VRCPhysBoneCollider)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, pcDst.rootTransform, "rootTransform");
+                var dst = (VRCPhysBoneCollider)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.rootTransform, "rootTransform");
             }
 
             // Contact
-            if (cmp is VRCContactSender cnsDst)
+            if (cmp is VRCContactSender)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, cnsDst.rootTransform, "rootTransform");
+                var dst = (VRCContactSender)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.rootTransform, "rootTransform");
             }
-            if (cmp is VRCContactReceiver cnrDst)
+            if (cmp is VRCContactReceiver)
             {
-                CheckReferenceAndWarn(dstAllTransforms, cmp, cnrDst.rootTransform, "rootTransform");
+                var dst = (VRCContactReceiver)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.rootTransform, "rootTransform");
             }
+
+            // VRC Constraint
+#if ENV_VRCSDK3_AVATAR_CST
+            if (cmp is VRCConstraintBase)
+            {
+                var dst = (VRCConstraintBase)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.TargetTransform, "TargetTransform");
+                var list = dst.Sources;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, list.Select(t => t.SourceTransform), "Sources");
+            }
+            if (cmp is VRCLookAtConstraint)
+            {
+                var dst = (VRCLookAtConstraint)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.WorldUpTransform, "WorldUpTransform");
+            }
+            if (cmp is VRCAimConstraint)
+            {
+                var dst = (VRCAimConstraint)cmp;
+                CheckReferenceAndWarn(dstAllTransforms, cmp, dst.WorldUpTransform, "WorldUpTransform");
+            }
+#endif
         }
 
         private void CheckReferenceAndWarn<T>(Transform[] dstAllTransforms, Component parent, T property, string propertyName) where T : Component

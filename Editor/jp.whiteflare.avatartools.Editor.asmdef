@@ -20,7 +20,8 @@
         "VRCSDK3.dll",
         "VRC.Dynamics.dll",
         "VRC.SDK3.Dynamics.PhysBone.dll",
-        "VRC.SDK3.Dynamics.Contact.dll"
+        "VRC.SDK3.Dynamics.Contact.dll",
+        "VRC.SDK3.Dynamics.Constraint.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [],
@@ -49,6 +50,11 @@
             "name": "com.anatawa12.avatar-optimizer",
             "expression": "[1.7.0,2.0.0)",
             "define": "ENV_AAO"
+        },
+        {
+            "name": "com.vrchat.avatars",
+            "expression": "[3.7.0,4.0.0)",
+            "define": "ENV_VRCSDK3_AVATAR_CST"
         }
     ],
     "noEngineReferences": false
