@@ -110,6 +110,7 @@ namespace WF.Tool.Avatar.BakeKillerFinder
             treeView.items = CreateTreeViewItem();
             treeView.SortItems();
             treeView.Reload();
+            treeView.SetSelection(new List<int>());
             updated = false;
         }
 
@@ -474,6 +475,33 @@ namespace WF.Tool.Avatar.BakeKillerFinder
                         }));
                 },
 
+            (rootObject, onlyActiveObject, result) =>
+                {
+                    var allLights = FindInScene<Light>(rootObject, onlyActiveObject)
+                        .Where(light => light.type == LightType.Point)
+                        .Where(light => light.lightmapBakeType != LightmapBakeType.Realtime)
+                        .Distinct().ToArray();
+                    var duplicatedLightSet = new HashSet<Light>(allLights.GroupBy(light => string.Format("{0:F5}/{1:F5}/{2:F5}|{3}|{4:F3}/{5:F3}/{6:F3}|{7:F5}/{8:F3}/{9:F3}",
+                            light.transform.position.x, light.transform.position.y, light.transform.position.z, // 0-2
+                            light.lightmapBakeType, // 3
+                            light.color.r, light.color.g, light.color.b, // 4-6
+                            light.range, light.intensity, light.bounceIntensity // 7-9
+                        )).Where(g => 2 <= g.Count()).SelectMany(g => g));
+                    foreach(var light in allLights)
+                    {
+                        if (duplicatedLightSet.Contains(light))
+                        {
+                            result.Add(new WarnItem(){
+                                gameObject = light.gameObject,
+                                component = light,
+                                level = WarnLevel.ERROR,
+                                wid = "B5",
+                                message = "同一位置に同一設定値のBakedなPointライトが複数あります",
+                            });
+                        }
+                    }
+                },
+
             // =========================
             // 描画不正
             // =========================
@@ -533,14 +561,24 @@ namespace WF.Tool.Avatar.BakeKillerFinder
 
             (rootObject, onlyActiveObject, result) =>
                 {
-                    result.AddRange(FindInScene<SkinnedMeshRenderer>(rootObject, onlyActiveObject).Where(HasUnmatchMaterialCount).Select(cmp => cmp.gameObject.transform)
-                        .Union(FindInScene<MeshRenderer>(rootObject, onlyActiveObject).Where(HasUnmatchMaterialCount).Select(cmp => cmp.gameObject.transform))
+                    result.AddRange(FindInScene<SkinnedMeshRenderer>(rootObject, onlyActiveObject)
+                        .Where(HasLessMaterialCount)
                         .Select(cmp => new WarnItem(){
                             gameObject = cmp.gameObject,
                             component = cmp,
                             level = WarnLevel.WARN,
                             wid = "C4",
-                            message = "SubMeshCount と Material スロット数が不一致です",
+                            message = "Material スロット数がメッシュ SubMeshCount よりも少ないです",
+                        }));
+                    result.AddRange(FindInScene<MeshRenderer>(rootObject, onlyActiveObject)
+                        .Where(cmp => !IsBatchingStatic(cmp)) // Batching static な MeshRenderer はC4ではなくC7で確認する
+                        .Where(HasLessMaterialCount)
+                        .Select(cmp => new WarnItem(){
+                            gameObject = cmp.gameObject,
+                            component = cmp,
+                            level = WarnLevel.WARN,
+                            wid = "C4",
+                            message = "Material スロット数がメッシュ SubMeshCount よりも少ないです",
                         }));
                 },
 
@@ -553,6 +591,20 @@ namespace WF.Tool.Avatar.BakeKillerFinder
                             level = WarnLevel.WARN,
                             wid = "C6",
                             message = "Bone が Missing です",
+                        }));
+                },
+
+            (rootObject, onlyActiveObject, result) =>
+                {
+                    result.AddRange(FindInScene<MeshRenderer>(rootObject, onlyActiveObject)
+                        .Where(IsBatchingStatic)
+                        .Where(HasNotEqualMaterialCount)
+                        .Select(cmp => new WarnItem(){
+                            gameObject = cmp.gameObject,
+                            component = cmp,
+                            level = WarnLevel.WARN,
+                            wid = "C7",
+                            message = "BatchingStatic メッシュの SubMeshCount と Material スロット数が不一致です",
                         }));
                 },
 
@@ -759,6 +811,34 @@ namespace WF.Tool.Avatar.BakeKillerFinder
                 return false;
             }
             return IsAllStatic(cmp.gameObject);
+        }
+
+        /// <summary>
+        /// ContributeGI が付いているならば true
+        /// </summary>
+        public static bool IsBatchingStatic(GameObject obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+            if (!GameObjectUtility.AreStaticEditorFlagsSet(obj, StaticEditorFlags.BatchingStatic))
+            {
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// ContributeGI が付いているならば true
+        /// </summary>
+        public static bool IsBatchingStatic(Component cmp)
+        {
+            if (cmp == null)
+            {
+                return false;
+            }
+            return IsBatchingStatic(cmp.gameObject);
         }
 
         /// <summary>
@@ -975,7 +1055,7 @@ namespace WF.Tool.Avatar.BakeKillerFinder
             return renderer.bones.Any(t => t == null);
         }
 
-        public static bool HasUnmatchMaterialCount(MeshRenderer renderer)
+        public static bool HasNotEqualMaterialCount(MeshRenderer renderer)
         {
             if (renderer == null)
             {
@@ -987,40 +1067,31 @@ namespace WF.Tool.Avatar.BakeKillerFinder
             {
                 return false;
             }
-            if (mf.sharedMesh.subMeshCount == 1)
-            {
-                return false; // サブメッシュカウントが 1 のときは、マテリアルは何個でもOK
-            }
-            return mf.sharedMesh.subMeshCount != renderer.sharedMaterials.Length;
+            return renderer.sharedMaterials.Length != mf.sharedMesh.subMeshCount;
         }
 
-        public static bool HasUnmatchMaterialCount(SkinnedMeshRenderer renderer)
+        public static bool HasLessMaterialCount(MeshRenderer renderer)
         {
             if (renderer == null)
             {
                 return false;
             }
-            if (renderer.sharedMesh != null)
+            // MeshFilter
+            var mf = renderer.gameObject.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null)
             {
-                if (renderer.sharedMesh.subMeshCount == 1)
-                {
-                    return false; // サブメッシュカウントが 1 のときは、マテリアルは何個でもOK
-                }
-                return renderer.sharedMesh.subMeshCount != renderer.sharedMaterials.Length;
+                return false;
             }
-            else
+            return renderer.sharedMaterials.Length < mf.sharedMesh.subMeshCount;
+        }
+
+        public static bool HasLessMaterialCount(SkinnedMeshRenderer renderer)
+        {
+            if (renderer == null || renderer.sharedMesh == null)
             {
-                var mf = renderer.gameObject.GetComponent<MeshFilter>();
-                if (mf == null)
-                {
-                    return false;
-                }
-                if (mf.sharedMesh.subMeshCount == 1)
-                {
-                    return false; // サブメッシュカウントが 1 のときは、マテリアルは何個でもOK
-                }
-                return mf.sharedMesh.subMeshCount != renderer.sharedMaterials.Length;
+                return false;
             }
+            return renderer.sharedMaterials.Length < renderer.sharedMesh.subMeshCount;
         }
 
         public static bool HasUnlitShader(MeshRenderer renderer)
