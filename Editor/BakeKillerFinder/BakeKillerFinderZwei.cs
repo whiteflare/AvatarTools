@@ -1,7 +1,7 @@
 ﻿/*
  *  The MIT License
  *
- *  Copyright 2020-2022 shajiku_works and whiteflare.
+ *  Copyright 2020-2024 shajiku_works and whiteflare.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
  *  to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -31,7 +31,7 @@ using UnityEditor.SceneManagement;
 using UnityEditor.Experimental.SceneManagement;
 #endif
 
-namespace WF.Tool.Avatar.BakeKillerFinder
+namespace WF.Tool.World.BakeKillerFinder
 {
     public class BakeKillerFinderZweiWindow : EditorWindow
     {
@@ -663,6 +663,28 @@ namespace WF.Tool.Avatar.BakeKillerFinder
                             message = "モデル組み込みマテリアルが使用されています",
                         }));
                 },
+
+            (rootObject, onlyActiveObject, result) =>
+                {
+                    result.AddRange(FindInScene<MeshFilter>(rootObject, onlyActiveObject)
+                        .Where(HasExternalMaterialsMesh)
+                        .Select(cmp => new WarnItem(){
+                            gameObject = cmp.gameObject,
+                            component = cmp,
+                            level = WarnLevel.INFO,
+                            wid = "D5",
+                            message = "External Materials を使用したメッシュが使われています",
+                        }));
+                    result.AddRange(FindInScene<SkinnedMeshRenderer>(rootObject, onlyActiveObject)
+                        .Where(HasExternalMaterialsMesh)
+                        .Select(cmp => new WarnItem(){
+                            gameObject = cmp.gameObject,
+                            component = cmp,
+                            level = WarnLevel.INFO,
+                            wid = "D5",
+                            message = "External Materials を使用したメッシュが使われています",
+                        }));
+                },
         };
 
         /// <summary>
@@ -955,6 +977,46 @@ namespace WF.Tool.Avatar.BakeKillerFinder
                 }
             }
             return false;
+        }
+
+        public static bool HasExternalMaterialsMesh(MeshFilter mf)
+        {
+            if (mf == null || mf.sharedMesh == null)
+            {
+                return false;
+            }
+            var mesh = mf.sharedMesh;
+            var path = AssetDatabase.GetAssetPath(mesh);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+            var importer = AssetImporter.GetAtPath(path) as ModelImporter;
+            if (importer == null)
+            {
+                return false;
+            }
+            return importer.materialImportMode != ModelImporterMaterialImportMode.None && importer.materialLocation == ModelImporterMaterialLocation.External;
+        }
+
+        public static bool HasExternalMaterialsMesh(SkinnedMeshRenderer smr)
+        {
+            if (smr == null || smr.sharedMesh == null)
+            {
+                return false;
+            }
+            var mesh = smr.sharedMesh;
+            var path = AssetDatabase.GetAssetPath(mesh);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+            var importer = AssetImporter.GetAtPath(path) as ModelImporter;
+            if (importer == null)
+            {
+                return false;
+            }
+            return importer.materialImportMode != ModelImporterMaterialImportMode.None && importer.materialLocation == ModelImporterMaterialLocation.External;
         }
 
         /// <summary>
