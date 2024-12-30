@@ -22,5 +22,3 @@ Missing な Script, Prefab, Material, Mesh などを検索できます。
 # 著作権とライセンスは何ですか？
 
 MIT LICENSE での公開です。LICENSE.txt もご確認ください。
-Copyright (C) 車軸製作所＆フレア
-
