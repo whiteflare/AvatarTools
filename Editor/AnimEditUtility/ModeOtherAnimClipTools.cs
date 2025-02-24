@@ -188,7 +188,7 @@ namespace WF.Tool.Avatar.AnimEdit
 
         public static AnimationClip ExecuteGenerateResetClip(AnimationClip[] clips, GameObject avatarRoot)
         {
-            var path = EditorUtility.SaveFilePanelInProject(AnimEditUtilWindow.Title + ": Save Clip", "Reset", "anim", "");
+            var path = SaveFilePanelInProject(AnimEditUtilWindow.Title + ": Save Clip", "Reset", "anim", "");
             if (string.IsNullOrWhiteSpace(path))
             {
                 return null;

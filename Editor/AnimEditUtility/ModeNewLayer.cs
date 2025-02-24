@@ -265,7 +265,7 @@ namespace WF.Tool.Avatar.AnimEdit
             var first = srcClips.FirstOrDefault(c => c != null);
             if (first == null)
             {
-                var path = EditorUtility.SaveFilePanelInProject(AnimEditUtilWindow.Title + "Generate Clip", "", "anim", "Please enter new AnimationClip filename");
+                var path = SaveFilePanelInProject(AnimEditUtilWindow.Title + "Generate Clip", "", "anim", "Enter new AnimationClip filename");
                 if (string.IsNullOrWhiteSpace(path))
                 {
                     return;

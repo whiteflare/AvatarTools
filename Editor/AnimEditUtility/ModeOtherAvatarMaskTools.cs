@@ -111,7 +111,7 @@ namespace WF.Tool.Avatar.AnimEdit
 
         private void ExecuteGenAvatarMask()
         {
-            var path = EditorUtility.SaveFilePanelInProject("AvatarMask の保存", "", "mask", "");
+            var path = SaveFilePanelInProject("AvatarMask の保存", "", "mask", "");
             if (string.IsNullOrWhiteSpace(path))
             {
                 return;

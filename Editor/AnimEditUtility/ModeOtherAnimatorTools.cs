@@ -407,7 +407,7 @@ namespace WF.Tool.Avatar.AnimEdit
         {
             if (emptyAnimClip == null)
             {
-                var path = EditorUtility.SaveFilePanelInProject(AnimEditUtilWindow.Title + ": Save Clip", "Empty", "anim", "");
+                var path = SaveFilePanelInProject(AnimEditUtilWindow.Title + ": Save Clip", "Empty", "anim", "");
                 if (string.IsNullOrWhiteSpace(path))
                 {
                     return;
