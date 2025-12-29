@@ -112,14 +112,7 @@ namespace WF.Tool.Avatar.AvTexTool
             EditorGUILayout.BeginHorizontal();
             {
                 var sizeTotal = GetTotalVRAMSize();
-                var sizeLimited = GetTotalVRAMSize(false);
-#if ENV_VRCSDK3_AVATAR
-                var text = string.Format("Total VRAM: {0} ({1}) / Display on VRC: {2} ({3})",
-                    ToPrettyString(sizeTotal), GetPerformanceRank(sizeTotal),
-                    ToPrettyString(sizeLimited), GetPerformanceRank(sizeLimited));
-#else
                 var text = string.Format("Total VRAM: {0}", ToPrettyString(sizeTotal));
-#endif
                 GUILayout.Label(text, EditorStyles.boldLabel);
                 GUILayout.FlexibleSpace();
 
@@ -291,13 +284,9 @@ namespace WF.Tool.Avatar.AvTexTool
             return Math.Round(bytes / 1024.0 / 1024.0 / 1024.0, 2) + " GiB";
         }
 
-        private long GetTotalVRAMSize(bool? filter = null)
+        private long GetTotalVRAMSize()
         {
             var e = treeView.items.Where(item => item != null);
-            if (filter != null)
-            {
-                e = e.Where(item => item.special == filter);
-            }
             return e.Select(item => item.vramSize).Sum();
         }
 
@@ -375,19 +364,8 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
-            // ここまでで special = false の TxTreeViewItem を作成する
             var items = new List<TxTreeViewItem>();
-            items.AddRange(texs.Where(tex => tex != null).Distinct().Select(tex => new TxTreeViewItem(tex, false)));
-
-            // VRCSDKから差し替えられるものを再検索して、リストアップされていないテクスチャを special = true で追加する
-#if ENV_VRCSDK3_AVATAR
-            foreach(var tex in FindTexture(root, true))
-            {
-                if (texs.Contains(tex))
-                    continue;
-                items.Add(new TxTreeViewItem(tex, true));
-            }
-#endif
+            items.AddRange(texs.Where(tex => tex != null).Distinct().Select(tex => new TxTreeViewItem(tex)));
 
             return items.ToArray();
         }
@@ -495,7 +473,6 @@ namespace WF.Tool.Avatar.AvTexTool
         internal class TxTreeViewItem
         {
             public readonly Texture texture;
-            public readonly bool special;
             public readonly TextureImporter importer;
 
             public long vramSize;
@@ -508,10 +485,9 @@ namespace WF.Tool.Avatar.AvTexTool
             private bool? changedStreamingMipmaps = null;
             private TextureImporterNPOTScale? changedNpotScale = null;
 
-            public TxTreeViewItem(Texture texture, bool special)
+            public TxTreeViewItem(Texture texture)
             {
                 this.texture = texture;
-                this.special = special;
 
                 var path = AssetDatabase.GetAssetPath(texture);
                 if (string.IsNullOrWhiteSpace(path))
