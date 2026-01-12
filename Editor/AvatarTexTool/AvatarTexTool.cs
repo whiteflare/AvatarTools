@@ -301,7 +301,7 @@ namespace WF.Tool.Avatar.AvTexTool
 #endif
             // シーンからマテリアル→テクスチャを検索
             var texs = new List<Texture>();
-            texs.AddRange(FindTexture(root, false));
+            texs.AddRange(FindTexture(root));
 
             // root未指定ならばライトマップを追加
             if (root == null)
@@ -370,7 +370,7 @@ namespace WF.Tool.Avatar.AvTexTool
             return items.ToArray();
         }
 
-        private IEnumerable<Texture> FindTexture(GameObject root, bool withVRCSDK)
+        private IEnumerable<Texture> FindTexture(GameObject root)
         {
             var seeker = new MaterialSeeker();
 
@@ -381,24 +381,22 @@ namespace WF.Tool.Avatar.AvTexTool
             }
 
             // VRCSDKから検索
-            if (withVRCSDK)
-            {
 #if ENV_VRCSDK3_AVATAR
-                // VRCAvatarDescriptor -> Controller -> AnimationClip -> Material
-                seeker.ComponentSeekers.Add(new MaterialSeeker.FromComponentSeeker<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>((desc, result) => {
-                    if (desc.customizeAnimationLayers)
-                    {
-                        foreach (var layer in desc.baseAnimationLayers)
-                        {
-                            seeker.GetAllMaterials(layer.animatorController, result);
-                        }
-                    }
-                    foreach (var layer in desc.specialAnimationLayers)
+            // VRCAvatarDescriptor -> Controller -> AnimationClip -> Material
+            seeker.ComponentSeekers.Add(new MaterialSeeker.FromComponentSeeker<VRC.SDK3.Avatars.Components.VRCAvatarDescriptor>((desc, result) => {
+                if (desc.customizeAnimationLayers)
+                {
+                    foreach (var layer in desc.baseAnimationLayers)
                     {
                         seeker.GetAllMaterials(layer.animatorController, result);
                     }
-                    return result;
-                }));
+                }
+                foreach (var layer in desc.specialAnimationLayers)
+                {
+                    seeker.GetAllMaterials(layer.animatorController, result);
+                }
+                return result;
+            }));
 #endif
 #if ENV_VRCSDK3_WORLD
             seeker.ComponentSeekers.Add(new MaterialSeeker.FromComponentSeeker<VRC.SDK3.Components.VRCSceneDescriptor>((desc, result) => {
@@ -406,7 +404,6 @@ namespace WF.Tool.Avatar.AvTexTool
                 return result;
             }));
 #endif
-            }
 
             // 検索
             var mats = root != null ? seeker.GetAllMaterials(root) : seeker.GetAllMaterialsInScene();
