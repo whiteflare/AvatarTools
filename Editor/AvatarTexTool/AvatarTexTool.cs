@@ -112,7 +112,12 @@ namespace WF.Tool.Avatar.AvTexTool
             EditorGUILayout.BeginHorizontal();
             {
                 var sizeTotal = GetTotalVRAMSize();
+#if ENV_VRCSDK3_AVATAR
+                var text = string.Format("Total VRAM: {0} ({1})",
+                    ToPrettyString(sizeTotal), GetPerformanceRank(sizeTotal));
+#else
                 var text = string.Format("Total VRAM: {0}", ToPrettyString(sizeTotal));
+#endif
                 GUILayout.Label(text, EditorStyles.boldLabel);
                 GUILayout.FlexibleSpace();
 
