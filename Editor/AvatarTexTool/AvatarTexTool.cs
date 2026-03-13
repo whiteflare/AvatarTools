@@ -20,6 +20,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
@@ -55,6 +56,11 @@ namespace WF.Tool.Avatar.AvTexTool
         private GameObject rootObject;
         private float previewSize = 16;
 
+        private static readonly Dictionary<TextureImporterType, int[]> textureImportFormatValue = new Dictionary<TextureImporterType, int[]>();
+        private static readonly Dictionary<TextureImporterType, string[]> textureImportFormatString = new Dictionary<TextureImporterType, string[]>();
+
+        private static readonly Color MARK_MODIFIED = Color.yellow;
+
         private void OnEnable()
         {
             currentWindow = this;
@@ -63,7 +69,62 @@ namespace WF.Tool.Avatar.AvTexTool
                 treeViewState = new TreeViewState();
             }
             treeView = new TextureListView(treeViewState);
+
+            BuildTextureImportFormatArray();
             UpdateTreeView();
+        }
+
+        private void BuildTextureImportFormatArray()
+        {
+            textureImportFormatValue.Clear();
+            textureImportFormatString.Clear();
+
+            var typeTextureImportValidFormats = typeof(TextureImporter).Assembly.GetType("UnityEditor.TextureImportValidFormats");
+            var mmGetDefaultTextureFormatValuesAndStrings = typeTextureImportValidFormats.GetMethod("GetDefaultTextureFormatValuesAndStrings", BindingFlags.Static | BindingFlags.Public);
+            var mmGetPlatformTextureFormatValuesAndStrings = typeTextureImportValidFormats.GetMethod("GetPlatformTextureFormatValuesAndStrings", BindingFlags.Static | BindingFlags.Public);
+
+            foreach (var textureTypeName in Enum.GetNames(typeof(TextureImporterType)))
+            {
+                var textureTypeField = typeof(TextureImporterType).GetField(textureTypeName);
+                if (textureTypeField.IsDefined(typeof(ObsoleteAttribute), false))
+                    continue;
+                var textureType = (TextureImporterType)Enum.Parse(typeof(TextureImporterType), textureTypeName);
+
+                var formatValues = new List<int>();
+                var formatStrings = new List<string>();
+                var buildTarget = EditorUserBuildSettings.activeBuildTarget;
+
+                formatValues.Add((int) TextureImporterFormat.Automatic);
+                formatStrings.Add("Automatic");
+                if (mmGetDefaultTextureFormatValuesAndStrings != null) {
+                    var args = new object[] { textureType, null, null };
+                    mmGetDefaultTextureFormatValuesAndStrings.Invoke(null, args);
+                    var values = args[1] as int[];
+                    var labels = args[2] as string[];
+                    if (values != null && 0 < values.Length)
+                    {
+                        formatValues.Add(-1);
+                        formatStrings.Add("");
+                        formatValues.AddRange(values);
+                        formatStrings.AddRange(labels);
+                    }
+                }
+                if (mmGetPlatformTextureFormatValuesAndStrings != null) {
+                    var args = new object[] { textureType, buildTarget, null, null };
+                    mmGetPlatformTextureFormatValuesAndStrings.Invoke(null, args);
+                    var values = args[2] as int[];
+                    var labels = args[3] as string[];
+                    if (values != null && 0 < values.Length)
+                    {
+                        formatValues.Add(-1);
+                        formatStrings.Add("");
+                        formatValues.AddRange(values);
+                        formatStrings.AddRange(labels);
+                    }
+                }
+                textureImportFormatValue[textureType] = formatValues.ToArray();
+                textureImportFormatString[textureType] = formatStrings.ToArray();
+            }
         }
 
         private void OnDisable()
@@ -130,11 +191,15 @@ namespace WF.Tool.Avatar.AvTexTool
 
                 GUILayout.Space(32);
 
-                using (new EditorGUI.DisabledGroupScope(!treeView.items.Any(tv => tv.HasDirtyValue())))
+                var hasDirtyValue = treeView.items.Any(tv => tv.HasDirtyValue());
+                using (new EditorGUI.DisabledGroupScope(!hasDirtyValue))
                 {
-                    if (GUILayout.Button("Apply"))
+                    using (new ModifiedMarkScope(hasDirtyValue, MARK_MODIFIED))
                     {
-                        DoApply();
+                        if (GUILayout.Button("Apply"))
+                        {
+                            DoApply();
+                        }
                     }
                     if (GUILayout.Button("Revert"))
                     {
@@ -463,14 +528,15 @@ namespace WF.Tool.Avatar.AvTexTool
         const int COL_TextureOriginalWidth = 7;
         const int COL_TextureOriginalHeight = 8;
         // フォーマット
-        const int COL_Compression = 9;
-        const int COL_CrunchCompression = 10;
-        const int COL_CrunchQuality = 11;
-        const int COL_ActualFormat = 12;
+        const int COL_ImportFormat = 9;
+        const int COL_Compression = 10;
+        const int COL_CrunchCompression = 11;
+        const int COL_CrunchQuality = 12;
+        const int COL_ActualFormat = 13;
         // ミップマップ
-        const int COL_GenerateMipmap = 13;
-        const int COL_StreamingMipmap = 14;
-        const int COL_MipmapCount = 15;
+        const int COL_GenerateMipmap = 14;
+        const int COL_StreamingMipmap = 15;
+        const int COL_MipmapCount = 16;
 
         internal class TxTreeViewItem
         {
@@ -480,6 +546,7 @@ namespace WF.Tool.Avatar.AvTexTool
             public long vramSize;
 
             private int? changedMaxSize = null;
+            private TextureImporterFormat? changedTextureImporterFormat = null;
             private TextureImporterCompression? changedTextureCompression = null;
             private bool? changedCrunchCompression = null;
             private int? changedCrunchQuality = null;
@@ -499,8 +566,8 @@ namespace WF.Tool.Avatar.AvTexTool
 
                 UpdateVRAMSize();
 
-                var tf = GetCurrentTextureImporterFormat();
-                var f = GetCurrentTextureFormat();
+                var tf = GetTextureImporterFormat(true);
+                var f = GetRawTextureFormat();
                 if (tf != null && f != null && tf.ToString() != f.ToString())
                 {
                     Debug.LogWarningFormat(texture, "mismatch texture {0} format, importer={1}, actual={2}", texture, tf, f);
@@ -557,17 +624,17 @@ namespace WF.Tool.Avatar.AvTexTool
                     case TextureDimension.Cube:
                     case TextureDimension.Tex2DArray:
                         {
-                            var rf = GetCurrentRenderTextureFormat();
+                            var rf = GetRawRenderTextureFormat();
                             if (rf != null)
                             {
                                 return getTextureBitsPerPixel(rf) + ((RenderTexture)texture).depth;
                             }
-                            var tf = GetCurrentTextureFormat();
+                            var tf = GetRawTextureFormat();
                             if (tf != null)
                             {
                                 return getTextureBitsPerPixel(tf);
                             }
-                            var tif = GetCurrentTextureImporterFormat();
+                            var tif = GetTextureImporterFormat(true);
                             if (tif != null)
                             {
                                 return getTextureBitsPerPixel(tif);
@@ -581,6 +648,7 @@ namespace WF.Tool.Avatar.AvTexTool
             public bool HasDirtyValue()
             {
                 return changedMaxSize != null
+                    || changedTextureImporterFormat != null
                     || changedTextureCompression != null
                     || changedCrunchCompression != null
                     || changedCrunchQuality != null
@@ -593,6 +661,7 @@ namespace WF.Tool.Avatar.AvTexTool
             public void ClearDirtyValue()
             {
                 changedMaxSize = null;
+                changedTextureImporterFormat = null;
                 changedTextureCompression = null;
                 changedCrunchCompression = null;
                 changedCrunchQuality = null;
@@ -611,25 +680,40 @@ namespace WF.Tool.Avatar.AvTexTool
                 if (importer != null)
                 {
                     var settings = importer.GetPlatformTextureSettings(GetCurrentPlatformString());
-                    if (settings != null && settings.overridden)
+
+                    // PlatformSetting に切り替えるかどうかを先に決める
+                    if (settings != null && changedTextureImporterFormat != null) // 切り替えるのはFormatが変更されようとしている時
                     {
-                        if (changedMaxSize != null)
-                            settings.maxTextureSize = (int)changedMaxSize;
-                        importer.SetPlatformTextureSettings(settings);
+                        var afterOverridden = 0 <= (int)changedTextureImporterFormat &&
+                            !TextureImporter.IsDefaultPlatformTextureFormatValid(importer.textureType, (TextureImporterFormat)changedTextureImporterFormat); // Automatic または Default に入っているときはオフで平気
+                        if (afterOverridden != settings.overridden)
+                        {
+                            var src = afterOverridden ? settings : importer.GetDefaultPlatformTextureSettings();
+                            var dst = !afterOverridden ? settings : importer.GetDefaultPlatformTextureSettings();
+
+                            dst.maxTextureSize = src.maxTextureSize;
+                            // ここではFormatは変更しない。後で設定するので
+                            dst.compressionQuality = src.compressionQuality;
+                            dst.crunchedCompression = src.crunchedCompression;
+                            dst.compressionQuality = src.compressionQuality;
+
+                            settings.overridden = afterOverridden;
+                            importer.SetPlatformTextureSettings(settings);
+                        }
                     }
+
+                    settings = settings != null && settings.overridden ? settings : importer.GetDefaultPlatformTextureSettings();
 
                     if (changedMaxSize != null)
-                        importer.maxTextureSize = (int)changedMaxSize;
-
-                    if (!IsCurrentPlatformSettingsOverridden())
-                    {
-                        if (changedTextureCompression != null && IsFormatAutomatic())
-                            importer.textureCompression = (TextureImporterCompression)changedTextureCompression;
-                        if (changedCrunchCompression != null)
-                            importer.crunchedCompression = (bool)changedCrunchCompression;
-                        if (changedCrunchQuality != null)
-                            importer.compressionQuality = (int)changedCrunchQuality;
-                    }
+                        settings.maxTextureSize = (int)changedMaxSize;
+                    if (changedTextureImporterFormat != null)
+                        settings.format = (TextureImporterFormat) changedTextureImporterFormat;
+                    if (changedTextureCompression != null)
+                        settings.textureCompression = (TextureImporterCompression) changedTextureCompression;
+                    if (changedCrunchCompression != null)
+                        settings.crunchedCompression = (bool) changedCrunchCompression;
+                    if (changedCrunchQuality != null)
+                        settings.compressionQuality = (int) changedCrunchQuality;
 
                     if (changedGenerateMipmaps != null)
                         importer.mipmapEnabled = (bool)changedGenerateMipmaps;
@@ -641,6 +725,7 @@ namespace WF.Tool.Avatar.AvTexTool
 
                     ClearDirtyValue();
 
+                    importer.SetPlatformTextureSettings(settings);
                     importer.SaveAndReimport();
 
                     return true;
@@ -697,8 +782,10 @@ namespace WF.Tool.Avatar.AvTexTool
                             return "RenderTexture";
                         return GetTextureType();
                     case COL_ActualFormat:
-                        return GetCurrentRenderTextureFormat() ?? (object)GetCurrentTextureFormat();
+                        return GetRawRenderTextureFormat() ?? (object)GetRawTextureFormat();
 
+                    case COL_ImportFormat:
+                        return GetTextureImporterFormat();
                     case COL_MaxSize:
                         return GetTextureMaxSize();
                     case COL_Compression:
@@ -724,6 +811,8 @@ namespace WF.Tool.Avatar.AvTexTool
                 {
                     case COL_MaxSize:
                         return changedMaxSize != null;
+                    case COL_ImportFormat:
+                        return changedTextureImporterFormat != null;
                     case COL_Compression:
                         return IsFormatAutomatic() && changedTextureCompression != null;
                     case COL_CrunchCompression:
@@ -775,6 +864,15 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
+            private TextureImporterPlatformSettings GetCurrentOrPlatformTextureSettings()
+            {
+                if (importer == null)
+                {
+                    return null;
+                }
+                return GetCurrentPlatformSettingsOverridden() ?? importer.GetDefaultPlatformTextureSettings();
+            }
+
             public int? GetTextureMaxSize()
             {
                 if (importer == null)
@@ -785,8 +883,7 @@ namespace WF.Tool.Avatar.AvTexTool
                 {
                     return changedMaxSize;
                 }
-                var settings = GetCurrentPlatformSettingsOverridden() ?? importer.GetDefaultPlatformTextureSettings();
-                return settings.maxTextureSize;
+                return GetCurrentOrPlatformTextureSettings().maxTextureSize;
             }
 
             public object GetTextureNpotScale()
@@ -821,9 +918,13 @@ namespace WF.Tool.Avatar.AvTexTool
 #endif
             }
 
+            /// <summary>
+            /// TextureImporter の Compression (None/Low Quality/Normal Quality/High Quality) を返す。
+            /// </summary>
+            /// <returns></returns>
             public TextureImporterCompression? GetTextureCompression()
             {
-                if (importer == null || IsCurrentPlatformSettingsOverridden() || !IsFormatAutomatic())
+                if (importer == null || !IsFormatAutomatic())
                 {
                     return null;
                 }
@@ -831,12 +932,17 @@ namespace WF.Tool.Avatar.AvTexTool
                 {
                     return changedTextureCompression;
                 }
-                return importer.GetDefaultPlatformTextureSettings().textureCompression;
+                return importer.GetDefaultPlatformTextureSettings().textureCompression; // Platform別にも存在するけどDefaultだけのはず
             }
 
             public bool? IsCrunchCompression()
             {
-                if (importer == null || IsCurrentPlatformSettingsOverridden())
+                if (importer == null)
+                {
+                    return null;
+                }
+                var format = GetRawTextureFormat();
+                if (format == null || !isCrunchSupported(format))
                 {
                     return null;
                 }
@@ -844,23 +950,18 @@ namespace WF.Tool.Avatar.AvTexTool
                 {
                     return changedCrunchCompression;
                 }
-                var format = GetCurrentTextureFormat();
-                if (format == null || !isCrunchSupported(format))
-                {
-                    return null;
-                }
-                return importer.GetDefaultPlatformTextureSettings().crunchedCompression;
+                return GetCurrentOrPlatformTextureSettings().crunchedCompression;
             }
 
             public int? GetCrunchQuality()
             {
-                if (IsCrunchCompression() == true) // Overridden されているときは null が返ってくる
+                if (IsCrunchCompression() == true) // Crunch 未サポートのときは null が返ってくる
                 {
                     if (changedCrunchQuality != null)
                     {
                         return changedCrunchQuality;
                     }
-                    return importer.GetDefaultPlatformTextureSettings().compressionQuality;
+                    return GetCurrentOrPlatformTextureSettings().compressionQuality;
                 }
                 return null;
             }
@@ -897,42 +998,32 @@ namespace WF.Tool.Avatar.AvTexTool
                 return null;
             }
 
-            public TextureImporterFormat? GetCurrentTextureImporterFormat()
+            public TextureImporterFormat? GetTextureImporterFormat(bool expandAutomatic = false)
             {
-                var result = GetCurrentTextureImporterFormatRaw();
-                if (result == TextureImporterFormat.Automatic)
+                if (importer == null)
+                {
+                    return null;
+                }
+                if (changedTextureImporterFormat != null)
+                {
+                    return changedTextureImporterFormat;
+                }
+                var settings = GetCurrentOrPlatformTextureSettings();
+                var result = settings.format;
+                if (expandAutomatic && result == TextureImporterFormat.Automatic)
                 {
                     result = importer.GetAutomaticFormat(GetCurrentPlatformString());
                 }
                 return result;
             }
 
-            public TextureImporterFormat? GetCurrentTextureImporterFormatRaw()
-            {
-                if (importer == null)
-                {
-                    return null;
-                }
-                var settings = GetCurrentPlatformSettingsOverridden() ?? importer.GetDefaultPlatformTextureSettings();
-                return settings.format;
-            }
-
+            /// <summary>
+            /// TextureImporter の Format が Automatic かどうかを返す。
+            /// </summary>
+            /// <returns></returns>
             public bool IsFormatAutomatic()
             {
-                return GetCurrentTextureImporterFormatRaw() == TextureImporterFormat.Automatic;
-            }
-
-            private bool IsCurrentPlatformSettingsOverridden()
-            {
-                if (importer != null)
-                {
-                    var settings = importer.GetPlatformTextureSettings(GetCurrentPlatformString());
-                    if (settings != null && settings.overridden)
-                    {
-                        return true;
-                    }
-                }
-                return false;
+                return GetTextureImporterFormat() == TextureImporterFormat.Automatic;
             }
 
             private TextureImporterPlatformSettings GetCurrentPlatformSettingsOverridden()
@@ -957,16 +1048,24 @@ namespace WF.Tool.Avatar.AvTexTool
                 return "Standalone";
             }
 
-            public RenderTextureFormat? GetCurrentRenderTextureFormat()
+            /// <summary>
+            /// RenderTexture 自体の RenderTextureFormat を返す。
+            /// </summary>
+            /// <returns></returns>
+            public RenderTextureFormat? GetRawRenderTextureFormat()
             {
-                if (texture is RenderTexture)
+                if (texture is RenderTexture tr)
                 {
-                    return ((RenderTexture)texture).format;
+                    return tr.format;
                 }
                 return null;
             }
 
-            public TextureFormat? GetCurrentTextureFormat()
+            /// <summary>
+            /// Texture 自体の TextureFormat を返す。
+            /// </summary>
+            /// <returns></returns>
+            public TextureFormat? GetRawTextureFormat()
             {
                 if (texture is Texture2D t2d)
                 {
@@ -995,6 +1094,23 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
+            public void SetTextureImporterFormat(TextureImporterFormat v, bool changeOtherValue = true)
+            {
+                if (GetTextureImporterFormat() != v)
+                {
+                    changedTextureImporterFormat = v;
+
+                    if (changeOtherValue)
+                    {
+                        // もしAutomaticではなくCrunchedCompressionサポートしているなら
+                        if (v != TextureImporterFormat.Automatic && isCrunchSupportedFormat(v))
+                        {
+                            SetCrunchCompression(isCrunchedFormat(v), false);
+                        }
+                    }
+                }
+            }
+
             public void SetTextureCompression(TextureImporterCompression v)
             {
                 if (IsFormatAutomatic() && GetTextureCompression() != v)
@@ -1003,11 +1119,21 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
-            public void SetCrunchCompression(bool v)
+            public void SetCrunchCompression(bool v, bool changeOtherValue = true)
             {
                 if (IsCrunchCompression() != v)
                 {
                     changedCrunchCompression = v;
+
+                    if (changeOtherValue)
+                    {
+                        // もしテクスチャフォーマットも変更必要なら同時に変更する
+                        var newFormat = getCrunchedFormat(GetTextureImporterFormat(), v);
+                        if (newFormat != null)
+                        {
+                            SetTextureImporterFormat((TextureImporterFormat)newFormat, false);
+                        }
+                    }
                 }
             }
 
@@ -1045,8 +1171,10 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
-            private static bool isCrunchSupported(TextureImporterFormat? format)
+            private static bool isCrunchSupportedFormat(TextureImporterFormat? format)
             {
+                if (format == null)
+                    return false;
                 switch (format)
                 {
                     case TextureImporterFormat.DXT1:
@@ -1064,8 +1192,57 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
+            private static TextureImporterFormat? getCrunchedFormat(TextureImporterFormat? format, bool crunched)
+            {
+                if (format == null)
+                    return null;
+                switch (format)
+                {
+                    case TextureImporterFormat.Automatic:
+                        return TextureImporterFormat.Automatic;
+
+                    case TextureImporterFormat.DXT1:
+                    case TextureImporterFormat.DXT1Crunched:
+                        return crunched ? TextureImporterFormat.DXT1Crunched : TextureImporterFormat.DXT1;
+
+                    case TextureImporterFormat.DXT5:
+                    case TextureImporterFormat.DXT5Crunched:
+                        return crunched ? TextureImporterFormat.DXT5Crunched : TextureImporterFormat.DXT5;
+
+                    case TextureImporterFormat.ETC2_RGBA8:
+                    case TextureImporterFormat.ETC2_RGBA8Crunched:
+                        return crunched ? TextureImporterFormat.ETC2_RGBA8Crunched : TextureImporterFormat.ETC2_RGBA8;
+
+                    case TextureImporterFormat.ETC_RGB4:
+                    case TextureImporterFormat.ETC_RGB4Crunched:
+                        return crunched ? TextureImporterFormat.ETC_RGB4Crunched : TextureImporterFormat.ETC_RGB4;
+
+                    default:
+                        return null;
+                }
+            }
+
+            private static bool isCrunchedFormat(TextureImporterFormat? format)
+            {
+                if (format == null)
+                    return false;
+                switch (format)
+                {
+                    case TextureImporterFormat.DXT1Crunched:
+                    case TextureImporterFormat.DXT5Crunched:
+                    case TextureImporterFormat.ETC2_RGBA8Crunched:
+                    case TextureImporterFormat.ETC_RGB4Crunched:
+                        return true;
+
+                    default:
+                        return false;
+                }
+            }
+
             private static bool isCrunchSupported(TextureFormat? format)
             {
+                if (format == null)
+                    return false;
                 switch (format)
                 {
                     case TextureFormat.DXT1:
@@ -1375,6 +1552,11 @@ namespace WF.Tool.Avatar.AvTexTool
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
+                    headerContent = new GUIContent("Format", "Format"),
+                    width = 80,
+                });
+                column.Add(new MultiColumnHeaderState.Column
+                {
                     headerContent = new GUIContent("Compression", "Compression"),
                     width = 80,
                 });
@@ -1390,7 +1572,7 @@ namespace WF.Tool.Avatar.AvTexTool
                 });
                 column.Add(new MultiColumnHeaderState.Column
                 {
-                    headerContent = new GUIContent("Format", "Format"),
+                    headerContent = new GUIContent("Tex Format", "Tex Format"),
                     width = 120,
                 });
                 column.Add(new MultiColumnHeaderState.Column
@@ -1489,8 +1671,6 @@ namespace WF.Tool.Avatar.AvTexTool
                 menu.ShowAsContext();
             }
 
-            private static readonly Color MARK_MODIFIED = Color.yellow;
-
             protected override void RowGUI(RowGUIArgs args)
             {
                 var item = (ExTreeViewItem)args.item;
@@ -1552,6 +1732,22 @@ namespace WF.Tool.Avatar.AvTexTool
                                         }
                                     },
                                     (t, v) => t.SetTextureCompression(v));
+                            }
+                            break;
+
+                        case COL_ImportFormat:
+                            var fmt = info.GetTextureImporterFormat();
+                            if (fmt != null && info.importer != null)
+                            {
+                                DrawCellGUI(item,
+                                    () =>
+                                    {
+                                        using (new ModifiedMarkScope(info.IsDirtyValue(idx), MARK_MODIFIED))
+                                        {
+                                            return DrawTextureImporterFormatProperty(cellRect, info.importer.textureType, (TextureImporterFormat)fmt);
+                                        }
+                                    },
+                                    (t, v) => t.SetTextureImporterFormat(v));
                             }
                             break;
 
@@ -1687,6 +1883,16 @@ namespace WF.Tool.Avatar.AvTexTool
                 }
             }
 
+            private static TextureImporterFormat DrawTextureImporterFormatProperty(Rect cellRect, TextureImporterType textureType, TextureImporterFormat format)
+            {
+                if (textureImportFormatValue.TryGetValue(textureType, out var values)
+                    && textureImportFormatString.TryGetValue(textureType, out var labels))
+                {
+                    format = (TextureImporterFormat)EditorGUI.IntPopup(cellRect, (int)format, labels, values);
+                }
+                return format;
+            }
+
             private static TextureImporterCompression DrawCompressQualityProperty(Rect cellRect, TextureImporterCompression? cmp)
             {
                 var label = new string[] { "None", "Low Quality", "Normal Quality", "High Quality" };
@@ -1731,30 +1937,6 @@ namespace WF.Tool.Avatar.AvTexTool
                 for (; MAX_SIZE_VALUE[index] < size; index++) ;
                 index = EditorGUI.Popup(rect, index, MAX_SIZE_TEXT);
                 return MAX_SIZE_VALUE[index];
-            }
-
-            private class ModifiedMarkScope : GUI.Scope
-            {
-                public readonly bool isDirty;
-                private readonly Color oldColor;
-
-                public ModifiedMarkScope(bool isDirty, Color mark)
-                {
-                    this.isDirty = isDirty;
-                    this.oldColor = GUI.color;
-                    if (isDirty)
-                    {
-                        GUI.color = mark;
-                    }
-                }
-
-                protected override void CloseScope()
-                {
-                    if (isDirty)
-                    {
-                        GUI.color = oldColor;
-                    }
-                }
             }
 
             private void DrawCellGUI<V>(ExTreeViewItem current, Func<V> gui, Action<TxTreeViewItem, V> setter)
@@ -1804,6 +1986,30 @@ namespace WF.Tool.Avatar.AvTexTool
             internal class ExTreeViewItem : TreeViewItem
             {
                 public TxTreeViewItem info;
+            }
+        }
+
+        internal class ModifiedMarkScope : GUI.Scope
+        {
+            public readonly bool isDirty;
+            private readonly Color oldColor;
+
+            public ModifiedMarkScope(bool isDirty, Color mark)
+            {
+                this.isDirty = isDirty;
+                this.oldColor = GUI.color;
+                if (isDirty)
+                {
+                    GUI.color = mark;
+                }
+            }
+
+            protected override void CloseScope()
+            {
+                if (isDirty)
+                {
+                    GUI.color = oldColor;
+                }
             }
         }
     }
