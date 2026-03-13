@@ -1615,7 +1615,11 @@ namespace WF.Tool.Avatar.AvTexTool
 
             protected override void SelectionChanged(IList<int> selectedIds)
             {
-                Selection.objects = getSelectedTextures();
+                var selections = getSelectedTextures();
+                EditorApplication.delayCall += () =>
+                {
+                    Selection.objects = selections;
+                };
             }
 
             private ExTreeViewItem[] getSelectedTreeViewItem(ExTreeViewItem current = null)
@@ -1661,12 +1665,15 @@ namespace WF.Tool.Avatar.AvTexTool
                 var menu = new GenericMenu();
                 menu.AddItem(new GUIContent("Find Reference in Materials"), false, () =>
                 {
-                    var select = getTextureUsingMaterials();
-                    if (select.Length == 0)
+                    var selections = getTextureUsingMaterials();
+                    if (selections.Length == 0)
                     {
                         return;
                     }
-                    Selection.objects = select;
+                    EditorApplication.delayCall += () =>
+                    {
+                        Selection.objects = selections;
+                    };
                 });
                 menu.ShowAsContext();
             }
